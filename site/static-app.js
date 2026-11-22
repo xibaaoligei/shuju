@@ -153,7 +153,16 @@
       key,
       base64ToBytes(encrypted.data)
     );
-    return JSON.parse(new TextDecoder().decode(plain));
+
+    let bytes = new Uint8Array(plain);
+    if (encrypted.compression === "gzip") {
+      if (typeof DecompressionStream !== "function") {
+        throw new Error("当前浏览器不支持压缩数据，请更新浏览器后重试");
+      }
+      const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+      bytes = new Uint8Array(await new Response(stream).arrayBuffer());
+    }
+    return JSON.parse(new TextDecoder().decode(bytes));
   }
 
   async function loadPayload(passphrase) {

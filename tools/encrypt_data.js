@@ -9,6 +9,7 @@
 
 const crypto = require("crypto");
 const fs = require("fs");
+const zlib = require("zlib");
 
 const input = process.argv[2];
 const output = process.argv[3];
@@ -24,13 +25,14 @@ if (!passphrase) {
 }
 
 const plain = fs.readFileSync(input);
+const compressed = zlib.gzipSync(plain, { level: 9 });
 const salt = crypto.randomBytes(16);
 const iv = crypto.randomBytes(12);
 const iterations = 250000;
 const key = crypto.pbkdf2Sync(passphrase, salt, iterations, 32, "sha256");
 
 const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
-const ciphertext = Buffer.concat([cipher.update(plain), cipher.final()]);
+const ciphertext = Buffer.concat([cipher.update(compressed), cipher.final()]);
 const tag = cipher.getAuthTag();
 
 const payload = {
@@ -38,10 +40,11 @@ const payload = {
   alg: "AES-256-GCM",
   kdf: "PBKDF2-SHA256",
   iterations,
+  compression: "gzip",
   salt: salt.toString("base64"),
   iv: iv.toString("base64"),
   data: Buffer.concat([ciphertext, tag]).toString("base64")
 };
 
 fs.writeFileSync(output, JSON.stringify(payload), "utf8");
-console.log(`encrypted ${plain.length} bytes -> ${output}`);
+console.log(`encrypted ${plain.length} bytes (gzip ${compressed.length}) -> ${output}`);
