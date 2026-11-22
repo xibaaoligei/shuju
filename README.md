@@ -7,7 +7,9 @@
 - 由 GitHub Pages 托管，任何手机或电脑都可以访问
 - GitHub Actions 每天北京时间 06:00 自动抓取一次数据并重新部署
 
-预计地址：<https://xibaaoligei.github.io/shuju/>
+访问地址：<https://xibaaoligei.github.io/shuju/>
+
+> 已启用 GitHub Pages，公开仓库中只包含加密后的 `data.enc.json`，不包含明文数据。
 
 ## 密码在哪
 
