@@ -228,6 +228,13 @@ def write_site(payload: dict | None, out_dir: Path, passphrase: str, encrypt: bo
                fallback_data: Path | None = None) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    # 切换加密/公开模式时，避免旧数据文件残留
+    for stale in ("data.enc.json", "data.json"):
+        try:
+            (out_dir / stale).unlink()
+        except OSError:
+            pass
+
     template = (TEMPLATE / "index.html").read_text(encoding="utf-8")
     (out_dir / "index.html").write_text(inject_template(template), encoding="utf-8")
     shutil.copy2(TEMPLATE / "qrcode.js", out_dir / "qrcode.js")
@@ -237,8 +244,13 @@ def write_site(payload: dict | None, out_dir: Path, passphrase: str, encrypt: bo
     if payload is None:
         if not (fallback_data and fallback_data.exists()):
             raise RuntimeError("没有可用的兜底数据")
-        shutil.copy2(fallback_data, out_dir / "data.enc.json")
+        target = out_dir / ("data.enc.json" if encrypt else "data.json")
+        shutil.copy2(fallback_data, target)
         return
+
+    if not encrypt:
+        # 公开版默认展示全部数据，而不是只显示某个人的自选
+        payload.setdefault("preferences", {})["favOnly"] = False
 
     if encrypt:
         if not passphrase:

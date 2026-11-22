@@ -97,7 +97,7 @@
     ],
     "sortKey": "PE-TTM(分位点%·10年)",
     "sortDir": 1,
-    "favOnly": true,
+    "favOnly": false,
     "searchScope": "__all__",
     "percentilePeriod": "10年",
     "selectedColumns": [

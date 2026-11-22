@@ -14,12 +14,14 @@
   const PASS_KEY = "shuju_online_pass";
   const REMEMBER_KEY = "shuju_online_remember";
   const FAV_KEY = "shuju_online_favorites";
-  const PREF_KEY = "shuju_online_prefs";
+  const PREF_KEY = "shuju_online_prefs_v2";
+  const USER_KEY = "shuju_online_imported_batch";
 
   const appState = {
     payload: null,
     favorites: [],
-    prefs: {}
+    prefs: {},
+    userBatch: null
   };
 
   let resolveReady;
@@ -27,11 +29,10 @@
   const ready = new Promise(resolve => { resolveReady = resolve; });
   let unlockBusy = false;
 
-  // ── 隐藏只有本地 Flask 版才需要的按钮 ─────────────────────
+  // ── 隐藏没有意义的控件；导入、刷新、导出、分享都保留 ───────
   const style = document.createElement("style");
   style.textContent = `
-    label[for="fileInput"], #fileInput, #updateBtn, #stopBtn,
-    .actions .sep, .drop-zone { display: none !important; }
+    #stopBtn, .actions .sep, .drop-zone { display: none !important; }
 
     .online-lock {
       position: fixed; inset: 0; z-index: 1000;
@@ -83,9 +84,13 @@
       background: #eef2f7; color: #667085; font-size: 10px; font-weight: 600;
     }
 
-    /* 在线版没有「导入/更新/停止」，手机上把分享按钮补回来 */
+    /* 手机上给导入/刷新/导出/分享留出空间 */
     @media (max-width: 760px) {
-      #mobileShareBtn { display: inline-flex !important; flex: 1; }
+      .actions { flex-wrap: wrap; }
+      .actions label.btn { flex: 1 1 96px; }
+      #updateBtn { flex: 1 1 96px; }
+      #exportBtn { flex: 0 0 44px; }
+      #mobileShareBtn { display: inline-flex !important; flex: 1 1 100%; }
     }
   `;
   document.head.appendChild(style);
@@ -110,6 +115,7 @@
     </div>
   `;
   document.body.appendChild(lock);
+  lock.style.display = "none";
 
   const passInput = lock.querySelector("#onlinePassInput");
   const rememberInput = lock.querySelector("#onlineRemember");
@@ -188,8 +194,56 @@
     }
   }
 
+  function loadUserBatch() {
+    const saved = readJson(USER_KEY, null);
+    if (saved && saved.batch && saved.indexData) appState.userBatch = saved;
+  }
+
+  function saveUserBatch() {
+    if (!appState.userBatch) return;
+    try {
+      localStorage.setItem(USER_KEY, JSON.stringify(appState.userBatch));
+    } catch (_) {
+      // 浏览器存储已满时静默失败，当前页面仍可使用导入的数据
+    }
+  }
+
+  function flattenImportRows(rows) {
+    const keys = new Set();
+    rows.forEach(row => {
+      if (row && row.fields && typeof row.fields === "object") {
+        Object.keys(row.fields).forEach(key => keys.add(key));
+      }
+    });
+    const columns = ["指数代码", "指数名称", "发布时间"]
+      .concat(Array.from(keys).sort((a, b) => a.localeCompare(b, "zh-CN")));
+    const data = rows.map((row, index) => {
+      const flat = {
+        id: index + 1,
+        "指数代码": row.index_code || "",
+        "指数名称": row.index_name || "",
+        "发布时间": row.data_date || ""
+      };
+      if (row.fields && typeof row.fields === "object") {
+        Object.entries(row.fields).forEach(([key, value]) => { flat[key] = value; });
+      }
+      return flat;
+    });
+    return { data, columns };
+  }
+
   function applyPayload(payload) {
     appState.payload = payload;
+    appState.staticIndexData = payload.indexData || { data: [], columns: [], batch: null };
+    loadUserBatch();
+
+    if (appState.userBatch && appState.userBatch.batch) {
+      const base = Array.isArray(payload.batches) ? payload.batches : [];
+      payload.batches = [
+        appState.userBatch.batch,
+        ...base.filter(batch => batch.id !== appState.userBatch.batch.id)
+      ];
+    }
 
     const savedFavs = readJson(FAV_KEY, null);
     appState.favorites = Array.isArray(savedFavs)
@@ -242,10 +296,20 @@
     }
     if (path === "/api/batches") return jsonResponse(payload.batches || []);
     if (path === "/api/periods") return jsonResponse(payload.periods || { periods: [], default: "" });
-    if (path === "/api/index-data") return jsonResponse(payload.indexData || { data: [], columns: [], batch: null });
+    if (path === "/api/index-data") {
+      const batchId = Number(parsed.searchParams.get("batch_id"));
+      if (appState.userBatch && appState.userBatch.indexData &&
+          (!batchId || Number(appState.userBatch.batch.id) === batchId)) {
+        return jsonResponse(appState.userBatch.indexData);
+      }
+      return jsonResponse(appState.staticIndexData || { data: [], columns: [], batch: null });
+    }
     if (path.startsWith("/api/index-data/")) {
       const id = Number(path.split("/").pop());
-      const row = ((payload.indexData || {}).data || []).find(r => Number(r.id) === id);
+      const source = appState.userBatch && appState.userBatch.indexData
+        ? appState.userBatch.indexData
+        : (appState.staticIndexData || {});
+      const row = (source.data || []).find(r => Number(r.id) === id);
       return row ? jsonResponse(row) : jsonResponse({ error: "记录不存在" }, 404);
     }
 
@@ -305,8 +369,40 @@
       });
     }
     if (path === "/api/shutdown") return jsonResponse({ ok: true });
-    if (path === "/api/import" || path === "/api/fetch") {
-      return jsonResponse({ error: "在线版为只读数据，暂不支持在网页里修改" }, 403);
+    if (path === "/api/import") {
+      if (method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
+      const body = parseBody(init);
+      const rows = Array.isArray(body.rows) ? body.rows : [];
+      if (!rows.length) return jsonResponse({ error: "没有数据行" }, 400);
+
+      const flat = flattenImportRows(rows);
+      const now = new Date();
+      const previousId = appState.userBatch && appState.userBatch.batch
+        ? appState.userBatch.batch.id
+        : null;
+      const batch = {
+        id: now.getTime(),
+        source_id: 1,
+        batch_date: now.toISOString().slice(0, 10),
+        status: "success",
+        record_count: rows.length,
+        error_msg: "",
+        created_at: now.toISOString().slice(0, 19).replace("T", " ")
+      };
+      appState.userBatch = {
+        batch,
+        indexData: { data: flat.data, columns: flat.columns, batch }
+      };
+      saveUserBatch();
+
+      const base = Array.isArray(payload.batches)
+        ? payload.batches.filter(b => b.id !== batch.id && b.id !== previousId)
+        : [];
+      payload.batches = [batch, ...base];
+      return jsonResponse({ ok: true, batch_id: batch.id, record_count: rows.length });
+    }
+    if (path === "/api/fetch") {
+      return jsonResponse({ error: "在线版每天自动更新；可以点「刷新最新」重新加载已发布的数据。" }, 403);
     }
     return jsonResponse({ error: "Not found" }, 404);
   }
@@ -394,25 +490,59 @@
     const sharePanel = document.getElementById("sharePanel");
     if (sharePanel) {
       const intro = sharePanel.querySelector("p");
-      if (intro) intro.textContent = "把下面的网址发给任何手机或电脑，打开后输入访问密码即可。";
+      if (intro) intro.textContent = "把下面的网址发给任何手机或电脑，打开即可使用。";
       const hint = sharePanel.querySelector(".share-hint");
-      if (hint) hint.textContent = "不需要电脑开机，也不需要连接同一个网络。";
+      if (hint) hint.textContent = "不需要电脑开机，也不需要连接同一个网络；导入的数据保存在当前浏览器。";
     }
     const emptyCopy = document.querySelector(".empty-copy");
-    if (emptyCopy) emptyCopy.textContent = "当前数据快照为空。";
+    if (emptyCopy) emptyCopy.textContent = "当前数据为空，可以导入 CSV 或点「刷新最新」。";
     const meta = document.querySelector(".brand .meta");
-    if (meta && !meta.textContent.trim()) meta.textContent = "在线只读版";
+    if (meta && !meta.textContent.trim()) meta.textContent = "在线版";
+  }
+
+  function setupPublicActions() {
+    const oldUpdate = document.getElementById("updateBtn");
+    if (oldUpdate) {
+      const fresh = oldUpdate.cloneNode(true);
+      fresh.textContent = "刷新最新";
+      fresh.title = "重新加载 GitHub Pages 上的最新数据（每天自动更新）";
+      oldUpdate.replaceWith(fresh);
+      fresh.addEventListener("click", () => window.location.reload());
+    }
   }
 
   decoratePage();
+  window.addEventListener("DOMContentLoaded", setupPublicActions);
 
-  const savedPass = localStorage.getItem(PASS_KEY) || sessionStorage.getItem(PASS_KEY);
-  if (savedPass) {
-    passInput.value = savedPass;
-    rememberInput.checked = !!localStorage.getItem(PASS_KEY);
-    lockStatus.textContent = "自动打开";
-    tryUnlock(true);
-  } else {
-    window.setTimeout(() => passInput.focus(), 120);
+  async function bootstrap() {
+    // 公开版：直接读取 data.json，不需要密码。
+    try {
+      const plainResp = await fetch("./data.json", { cache: "no-store" });
+      if (plainResp.ok) {
+        const payload = await plainResp.json();
+        applyPayload(payload);
+        if (!readyResolved) {
+          readyResolved = true;
+          resolveReady(payload);
+        }
+        return;
+      }
+    } catch (_) {
+      // 没有 data.json 时退回加密模式
+    }
+
+    // 兼容本地仍使用加密 data.enc.json 的情况。
+    lock.style.display = "flex";
+    const savedPass = localStorage.getItem(PASS_KEY) || sessionStorage.getItem(PASS_KEY);
+    if (savedPass) {
+      passInput.value = savedPass;
+      rememberInput.checked = !!localStorage.getItem(PASS_KEY);
+      lockStatus.textContent = "自动打开";
+      tryUnlock(true);
+    } else {
+      window.setTimeout(() => passInput.focus(), 120);
+    }
   }
+
+  bootstrap();
 })();

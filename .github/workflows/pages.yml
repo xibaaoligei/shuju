@@ -39,10 +39,9 @@ jobs:
 
       - name: Build static site
         env:
-          SITE_PASSPHRASE: ${{ secrets.SITE_PASSPHRASE }}
           LIXINGER_COOKIES: ${{ secrets.LIXINGER_COOKIES }}
         run: |
-          python tools/build_static.py --api --out _site --fallback docs/data.enc.json
+          python tools/build_static.py --api --out _site --no-encrypt --fallback docs/data.json
 
       # GitHub 会在 60 天无仓库活动后暂停定时任务；每月写一次时间戳保持启用。
       - name: Keep scheduled workflow active
