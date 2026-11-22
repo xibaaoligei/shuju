@@ -528,7 +528,30 @@
         return;
       }
     } catch (_) {
-      // 没有 data.json 时退回加密模式
+      // 没有 data.json 时继续检查是否有加密数据
+    }
+
+    let hasEncrypted = false;
+    try {
+      const head = await fetch("./data.enc.json", { method: "HEAD", cache: "no-store" });
+      hasEncrypted = head.ok;
+    } catch (_) {
+      hasEncrypted = false;
+    }
+
+    if (!hasEncrypted) {
+      lock.innerHTML = `
+        <div class="online-lock-card" role="dialog" aria-modal="true">
+          <div class="online-lock-icon">⚠️</div>
+          <h1>数据加载失败</h1>
+          <p>请确认网络正常后刷新页面。如果刚部署过，GitHub Pages 可能需要几十秒生效。</p>
+          <button id="onlineRetryBtn" type="button">刷新页面</button>
+        </div>
+      `;
+      lock.style.display = "flex";
+      const retry = lock.querySelector("#onlineRetryBtn");
+      if (retry) retry.addEventListener("click", () => window.location.reload());
+      return;
     }
 
     // 兼容本地仍使用加密 data.enc.json 的情况。
