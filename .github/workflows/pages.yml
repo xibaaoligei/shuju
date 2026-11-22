@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -43,6 +43,19 @@ jobs:
           LIXINGER_COOKIES: ${{ secrets.LIXINGER_COOKIES }}
         run: |
           python tools/build_static.py --api --out _site --fallback docs/data.enc.json
+
+      # GitHub 会在 60 天无仓库活动后暂停定时任务；每月写一次时间戳保持启用。
+      - name: Keep scheduled workflow active
+        if: github.event_name == 'schedule'
+        run: |
+          date -u +%Y-%m > .github/last-scheduled-run.txt
+          if ! git diff --quiet -- .github/last-scheduled-run.txt; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add .github/last-scheduled-run.txt
+            git commit -m "chore: keep scheduled workflow active"
+            git push
+          fi
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
