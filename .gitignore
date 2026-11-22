@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+_site/
+_site_*/
+data/
+.passphrase
+docs/data.json

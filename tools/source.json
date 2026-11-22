@@ -1,0 +1,6 @@
+{
+  "name": "理杏仁 - 指数估值",
+  "url": "https://www.lixinger.com/analytics/index/dashboard/value",
+  "scraper_type": "playwright",
+  "config": "{\"api_base\": \"https://open.lixinger.com/api\", \"metrics\": [\"pe_ttm\", \"pe_ttm.y10.cvpos\", \"pb\", \"pb.y10.cvpos\", \"ps_ttm\", \"ps_ttm.y10.cvpos\", \"dyr\", \"roe\", \"mc\", \"change_rate\", \"close_point\", \"change_rate_ytd\"], \"granularity\": \"y10\", \"metrics_type\": \"mcw\"}"
+}

@@ -1,0 +1,2161 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="指数数据">
+  <link rel="icon" href="data:,">
+  <title>指数数据（在线版）</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f7fb;
+      --panel: #ffffff;
+      --text: #111827;
+      --muted: #667085;
+      --line: #d8dee8;
+      --line-strong: #b8c1d0;
+      --accent: #1f6feb;
+      --accent-soft: #e8f1ff;
+      --good: #087443;
+      --bad: #c73535;
+      --warn: #a15c07;
+      --star: #eaaa0a;
+      --shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+    html { height: 100%; }
+
+    body {
+      margin: 0; height: 100vh; min-height: 100vh; overflow: hidden;
+      background: var(--bg); color: var(--text);
+      font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", Arial, sans-serif;
+      font-size: 14px; line-height: 1.45;
+    }
+
+    button, input, select { font: inherit; }
+
+    .app {
+      display: grid; grid-template-rows: auto auto 1fr;
+      height: 100vh; min-height: 100vh;
+    }
+
+    /* ── 顶栏 ─────────────────────── */
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 16px; padding: 14px 20px; background: #ffffff;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .brand { display: flex; flex-direction: column; gap: 2px; min-width: 170px; }
+    .brand h1 { margin: 0; font-size: 18px; font-weight: 700; }
+    .brand .meta { color: var(--muted); font-size: 12px; white-space: nowrap; }
+
+    .actions { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .actions .sep { width: 1px; height: 24px; background: var(--line); flex: 0 0 auto; }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 8px; min-height: 36px; border: 1px solid var(--line-strong);
+      border-radius: 8px; background: #ffffff; color: var(--text);
+      cursor: pointer; white-space: nowrap; padding: 0 14px;
+    }
+
+    .btn-primary { background: var(--accent); border-color: var(--accent); color: #ffffff; font-weight: 600; }
+    .btn-icon { width: 36px; padding: 0; }
+    .btn:hover { filter: brightness(0.98); }
+
+    .icon {
+      width: 18px; height: 18px; stroke: currentColor; stroke-width: 2;
+      stroke-linecap: round; stroke-linejoin: round; fill: none; flex: 0 0 auto;
+    }
+
+    /* ── 工具栏 ─────────────────────── */
+    .toolbar {
+      display: grid; grid-template-columns: minmax(200px, 1fr) auto auto auto auto auto auto;
+      gap: 10px; align-items: center; padding: 10px 20px; background: #ffffff;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .search { position: relative; min-width: 0; }
+    .search svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+    .search input {
+      width: 100%; height: 38px; border: 1px solid var(--line-strong);
+      border-radius: 8px; padding: 0 12px 0 40px; background: #ffffff;
+      color: var(--text); outline: none;
+    }
+    .search input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(31,111,235,0.12); }
+
+    .select {
+      height: 38px; border: 1px solid var(--line-strong); border-radius: 8px;
+      padding: 0 34px 0 12px; background: #ffffff; color: var(--text); min-width: 140px;
+    }
+
+    .select-sm { min-width: 100px; height: 34px; padding: 0 28px 0 10px; font-size: 13px; }
+
+    .counter { color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+    .fav-toggle {
+      display: inline-flex; align-items: center; gap: 6px; height: 38px;
+      border: 1px solid var(--line-strong); border-radius: 8px; padding: 0 12px;
+      background: #ffffff; color: var(--text); cursor: pointer; white-space: nowrap;
+    }
+    .fav-toggle.active { border-color: var(--star); background: #fffcf0; color: var(--star); }
+
+    /* ── 列筛选 ─────────────────────── */
+    .column-filter { position: relative; }
+    .filter-button {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: 8px; height: 38px; border: 1px solid var(--line-strong);
+      border-radius: 8px; padding: 0 12px; background: #ffffff;
+      color: var(--text); cursor: pointer; white-space: nowrap;
+    }
+    .filter-button[aria-expanded="true"] { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(31,111,235,0.12); }
+
+    .filter-panel {
+      position: absolute; right: 0; top: calc(100% + 8px); z-index: 8;
+      display: none; width: min(360px, calc(100vw - 40px));
+      max-height: min(560px, calc(100vh - 150px)); overflow: hidden;
+      border: 1px solid var(--line-strong); border-radius: 8px;
+      background: #ffffff; box-shadow: 0 18px 46px rgba(15,23,42,0.18);
+    }
+    .filter-panel.open { display: grid; grid-template-rows: auto 1fr auto; }
+    .filter-panel-head, .filter-panel-foot {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--line);
+    }
+    .filter-panel-foot { border-top: 1px solid var(--line); border-bottom: 0; }
+    .filter-title { font-weight: 700; }
+    .filter-small {
+      border: 1px solid var(--line-strong); border-radius: 6px; background: #ffffff;
+      color: var(--text); cursor: pointer; padding: 4px 8px; font-size: 12px; white-space: nowrap;
+    }
+    .filter-list { min-height: 0; overflow: auto; padding: 6px 10px; }
+    .check-row {
+      display: flex; align-items: center; gap: 8px; padding: 7px 4px;
+      border-radius: 6px; cursor: pointer;
+    }
+    .check-row:hover { background: var(--accent-soft); }
+    .check-row input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+    .check-row span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* ── 主体 ─────────────────────── */
+    .workspace {
+      display: grid; grid-template-columns: minmax(0,1fr) 360px;
+      gap: 16px; padding: 16px 20px 20px; min-height: 0; overflow: hidden;
+    }
+    .table-pane, .detail-pane {
+      min-height: 0; background: var(--panel); border: 1px solid var(--line);
+      border-radius: 8px; box-shadow: var(--shadow);
+    }
+    .table-pane { overflow: hidden; display: flex; flex-direction: column; }
+
+    .empty-state {
+      display: flex; align-items: center; justify-content: center;
+      min-height: 220px; padding: 28px; color: var(--muted); text-align: center;
+      flex: 1;
+    }
+    .empty-title { color: var(--text); font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+    .empty-copy { max-width: 520px; margin: 0 auto; }
+
+    .loading { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 40px; color: var(--muted); }
+    .spinner { width: 20px; height: 20px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .table-wrap { flex: 1; min-height: 0; overflow: auto; position: relative; }
+
+    table {
+      width: 100%; border-collapse: separate; border-spacing: 0;
+      white-space: nowrap; font-size: 13px;
+    }
+    th, td {
+      border-bottom: 1px solid var(--line); border-right: 1px solid var(--line);
+      padding: 8px 10px; text-align: right; vertical-align: middle;
+      font-variant-numeric: tabular-nums; max-width: 280px;
+      overflow: hidden; text-overflow: ellipsis;
+    }
+    th {
+      position: sticky; top: 0; z-index: 4; background: #eef2f7;
+      color: #243041; font-weight: 700; cursor: pointer; user-select: none;
+      box-shadow: 0 1px 0 var(--line-strong);
+    }
+    th:first-child, td:first-child { border-left: 0; }
+    th.text, td.text { text-align: left; }
+    th.col-star, td.col-star { width: 42px; min-width: 42px; max-width: 42px; text-align: center; cursor: default; }
+    th.col-code, td.col-code { width: 82px; min-width: 82px; max-width: 82px; }
+    th.col-date, td.col-date { width: 92px; min-width: 92px; max-width: 92px; }
+    th.col-name, td.col-name { min-width: 156px; max-width: 220px; }
+    th.col-name { left: 0; z-index: 7; box-shadow: 1px 0 0 var(--line-strong), 0 1px 0 var(--line-strong); }
+    td.col-name {
+      position: sticky; left: 0; z-index: 3; background: #ffffff; box-shadow: 1px 0 0 var(--line);
+    }
+    /* 自选列为第二列时也需要 sticky */
+    td.col-name.offset { left: 42px; }
+
+    th.sortable::after { content: " ↕"; color: #8a94a6; font-weight: 600; }
+    th.sorted-asc::after { content: " ↑"; color: var(--accent); }
+    th.sorted-desc::after { content: " ↓"; color: var(--accent); }
+
+    th.col-star::after { content: "" !important; }
+
+    tbody tr { cursor: pointer; }
+    tbody tr:nth-child(even) { background: #fafbfc; }
+    tbody tr:nth-child(even) td.col-name { background: #fafbfc; }
+    tbody tr:hover { background: var(--accent-soft); }
+    tbody tr:hover td.col-name { background: var(--accent-soft); }
+    tbody tr.selected { background: #dfeeff; }
+    tbody tr.selected td.col-name { background: #dfeeff; }
+
+    .star-btn { background: none; border: none; cursor: pointer; font-size: 18px; padding: 2px; color: #ccc; line-height: 1; }
+    .star-btn.active { color: var(--star); }
+    .star-btn:hover { color: var(--star); }
+
+    .num-good { color: var(--good); }
+    .num-bad { color: var(--bad); }
+    .num-warn { color: var(--warn); }
+
+    /* ── 详情面板 ─────────────────────── */
+    .detail-pane { display: grid; grid-template-rows: auto auto 1fr; overflow: hidden; }
+    .detail-head { padding: 16px 16px 12px; border-bottom: 1px solid var(--line); }
+    .detail-name { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+    .detail-name h2 { margin: 0; font-size: 18px; font-weight: 700; overflow-wrap: anywhere; }
+    .detail-code { color: var(--muted); font-size: 12px; white-space: nowrap; }
+    .detail-sub { color: var(--muted); font-size: 12px; }
+
+    .metric-grid {
+      display: grid; grid-template-columns: repeat(2, minmax(0,1fr));
+      gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line);
+    }
+    .metric { min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 10px; background: #fbfcff; }
+    .metric-label { color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+    .metric-value { font-size: 17px; font-weight: 700; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+
+    .field-list { min-height: 0; overflow: auto; padding: 8px 16px 16px; }
+    .field-row { display: grid; grid-template-columns: minmax(120px,42%) minmax(0,1fr); gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+    .field-key { color: var(--muted); overflow-wrap: anywhere; }
+    .field-value { text-align: right; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+
+    .status { color: var(--muted); font-size: 12px; white-space: nowrap; }
+
+    /* ── Toast ─────────────────────── */
+    .toast {
+      position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%);
+      max-width: min(720px, calc(100vw - 32px)); padding: 10px 14px;
+      border-radius: 8px; background: #182133; color: #ffffff;
+      box-shadow: 0 12px 32px rgba(15,23,42,0.22); opacity: 0;
+      pointer-events: none; transition: opacity 160ms ease; z-index: 10;
+    }
+    .toast.show { opacity: 1; }
+
+    /* ── 数据源面板 ─────────────────────── */
+    .source-panel {
+      position: absolute; right: 0; top: calc(100% + 8px); z-index: 9;
+      display: none; width: 380px; max-height: 500px; overflow: hidden;
+      border: 1px solid var(--line-strong); border-radius: 8px;
+      background: #ffffff; box-shadow: 0 18px 46px rgba(15,23,42,0.18);
+    }
+    .source-panel.open { display: grid; grid-template-rows: auto 1fr; }
+    .source-panel-body { padding: 16px; overflow: auto; min-height: 0; }
+    .source-panel label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+    .source-panel input { width: 100%; height: 36px; border: 1px solid var(--line-strong); border-radius: 6px; padding: 0 10px; margin-bottom: 12px; }
+
+    /* ── 拖放导入 ─────────────────────── */
+    .drop-zone {
+      display: flex; align-items: center; justify-content: center; min-height: 180px;
+      padding: 28px; border: 2px dashed var(--line-strong); border-radius: 10px;
+      margin: 16px; background: #fbfcff; color: var(--muted); text-align: center;
+      cursor: pointer; transition: all 150ms ease;
+    }
+    .drop-zone:hover, .drop-zone.dragging {
+      background: var(--accent-soft); color: var(--accent);
+      border-color: var(--accent); border-style: solid;
+    }
+    .drop-zone .dz-title { color: var(--text); font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+    .drop-zone .dz-hint { font-size: 12px; }
+
+    /* ── 手机端专用组件（桌面默认隐藏） ───────────── */
+    .mobile-listbar, .card-list, .detail-close, .sheet-backdrop { display: none; }
+
+    .mobile-listbar {
+      align-items: center; justify-content: space-between; gap: 10px;
+      padding: 9px 12px; border-bottom: 1px solid var(--line);
+      color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums;
+    }
+    .view-toggle {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-height: 34px; padding: 0 11px; border: 1px solid var(--line-strong);
+      border-radius: 8px; background: #ffffff; color: var(--text);
+      font-size: 12px; cursor: pointer; white-space: nowrap;
+    }
+    .view-toggle[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+
+    .card-list { flex-direction: column; gap: 8px; padding: 10px; }
+    .idx-card {
+      border: 1px solid var(--line); border-radius: 10px; background: #ffffff;
+      padding: 10px 11px; cursor: pointer; transition: border-color 140ms ease, background 140ms ease;
+    }
+    .idx-card.selected { border-color: var(--accent); background: #f6faff; box-shadow: 0 0 0 2px rgba(31,111,235,0.10); }
+    .idx-card:active { background: var(--accent-soft); }
+    .card-head { display: flex; align-items: center; gap: 7px; min-width: 0; }
+    .card-head .star-btn { font-size: 20px; padding: 0 2px; }
+    .card-title { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+    .card-name { font-size: 15px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .card-code { color: var(--muted); font-size: 11px; }
+    .card-change { margin-left: auto; font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .card-metrics { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 6px; margin-top: 8px; }
+    .card-metric {
+      display: flex; align-items: baseline; justify-content: space-between; gap: 6px;
+      min-width: 0; padding: 5px 7px; border-radius: 6px; background: #f7f9fc;
+    }
+    .card-metric:only-child { grid-column: 1 / -1; }
+    .card-metric .cm-label { color: var(--muted); font-size: 11px; white-space: nowrap; }
+    .card-metric .cm-value { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .card-metric .cm-pct { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .card-empty { margin-top: 8px; color: var(--muted); font-size: 12px; }
+
+    .detail-close {
+      position: absolute; top: 8px; right: 8px; align-items: center; justify-content: center;
+      width: 36px; height: 36px; border: 1px solid var(--line); border-radius: 50%;
+      background: #ffffff; color: var(--muted); font-size: 16px; line-height: 1; cursor: pointer;
+    }
+
+    .sheet-backdrop {
+      position: fixed; inset: 0; z-index: 29; background: rgba(15,23,42,0.42);
+      opacity: 0; transition: opacity 180ms ease;
+    }
+    .sheet-backdrop.show { display: block; opacity: 1; }
+
+    /* ── 「手机访问」弹窗 ─────────────────── */
+    .share-backdrop {
+      position: fixed; inset: 0; z-index: 49; display: none;
+      background: rgba(15,23,42,0.45);
+    }
+    .share-backdrop.show { display: block; }
+    .share-panel {
+      position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      z-index: 50; display: none; width: min(420px, calc(100vw - 32px));
+      max-height: calc(100vh - 24px); overflow: auto;
+      padding: 20px; border-radius: 14px; background: #ffffff;
+      box-shadow: 0 24px 70px rgba(15,23,42,0.28);
+    }
+    .share-panel.open { display: block; }
+    .share-panel h2 { margin: 0 0 4px; font-size: 18px; }
+    .share-panel p { margin: 8px 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+    .share-url {
+      display: flex; align-items: center; justify-content: center; min-height: 50px;
+      padding: 8px; border: 1px dashed var(--line-strong); border-radius: 8px;
+      background: #f5f8fc; color: var(--accent); font-size: 16px; font-weight: 700;
+      text-align: center; word-break: break-all; user-select: all;
+    }
+    .share-qr { display: flex; justify-content: center; margin: 14px 0 4px; }
+    .share-qr canvas {
+      width: 200px; height: 200px; border-radius: 6px;
+      image-rendering: pixelated; background: #ffffff;
+    }
+    .share-qr-hint { text-align: center; font-size: 12px !important; margin: 0 !important; }
+    .share-actions { display: flex; gap: 8px; margin-top: 12px; }
+    .share-actions .btn { flex: 1; min-height: 42px; }
+    .share-close {
+      position: absolute; top: 10px; right: 10px; width: 32px; height: 32px;
+      border: 0; border-radius: 50%; background: #f1f4f9; color: var(--muted);
+      font-size: 16px; cursor: pointer;
+    }
+    .share-hint { font-size: 12px !important; }
+    .share-hint code { padding: 1px 4px; border-radius: 4px; background: #eef2f7; }
+
+    /* ── 响应式 ─────────────────────── */
+    @media (max-width: 1100px) {
+      .status { display: none; }
+    }
+
+    @media (max-width: 1040px) {
+      body { height: auto; overflow: auto; }
+      .app { height: auto; min-height: 100vh; grid-template-columns: minmax(0,1fr); }
+      .topbar, .toolbar, .workspace, .table-pane, .table-wrap { min-width: 0; }
+      .workspace { grid-template-columns: 1fr; grid-template-rows: auto auto; overflow: visible; }
+      .table-pane { height: min(62vh, 560px); min-height: 320px; }
+      .detail-pane { min-height: 420px; }
+    }
+
+    @media (max-width: 900px) {
+      .toolbar { display: flex; flex-wrap: wrap; align-items: center; }
+      .search { flex: 1 1 100%; }
+      .select { flex: 1 1 150px; }
+      .fav-toggle, .column-filter { flex: 0 0 auto; }
+      .counter { display: none; }
+    }
+
+    @media (max-width: 760px) {
+      .topbar {
+        display: grid; grid-template-columns: minmax(0,1fr); gap: 8px;
+        padding: calc(10px + env(safe-area-inset-top)) 12px 10px;
+      }
+      .brand {
+        flex-direction: row; align-items: baseline; justify-content: space-between;
+        gap: 8px; min-width: 0;
+      }
+      .brand h1 { font-size: 17px; }
+      .brand .meta { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+      .actions { width: 100%; justify-content: stretch; flex-wrap: nowrap; gap: 8px; }
+      .actions .sep, .actions .status, .actions #stopBtn, .actions #mobileShareBtn { display: none; }
+      .actions .btn { min-height: 44px; }
+      .actions label.btn { flex: 1; padding: 0 10px; }
+      #updateBtn { flex: 1.2; padding: 0 8px; }
+      #exportBtn { flex: 0 0 44px; width: 44px; font-size: 18px; }
+
+      .toolbar {
+        display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+        gap: 8px; padding: 10px 12px 12px;
+      }
+      .search { grid-column: 1 / -1; }
+      .search input { height: 44px; font-size: 16px; }
+      .select, .select-sm {
+        width: 100%; min-width: 0; height: 44px; font-size: 16px;
+        padding-right: 28px;
+      }
+      .fav-toggle { width: 100%; height: 44px; justify-content: center; font-size: 14px; }
+      .column-filter { grid-column: 1 / -1; }
+      .filter-button { width: 100%; height: 44px; }
+      .counter, .status { display: none; }
+
+      /* 筛选面板在手机上变成底部弹层，避免超出屏幕 */
+      .filter-panel {
+        position: fixed; left: 12px; right: 12px; top: auto;
+        bottom: calc(12px + env(safe-area-inset-bottom));
+        width: auto; max-height: 70vh; z-index: 45; border-radius: 14px;
+      }
+
+      body { height: auto; overflow: auto; }
+      body.sheet-open { overflow: hidden; }
+      .app { height: auto; min-height: 100vh; grid-template-columns: minmax(0,1fr); }
+      .topbar, .toolbar, .workspace { min-width: 0; }
+      .workspace { display: block; padding: 10px 12px calc(16px + env(safe-area-inset-bottom)); overflow: visible; }
+      .table-pane { height: auto; min-height: 0; min-width: 0; }
+
+      .mobile-listbar { display: flex; }
+      .card-list { display: flex; }
+
+      /* 表格视图：手机只保留关键列，首列固定在左侧 */
+      .table-wrap {
+        height: min(66vh, 620px); height: min(66dvh, 620px);
+        min-height: 320px; overflow: auto; min-width: 0;
+        -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain;
+      }
+      table { font-size: 12.5px; }
+      th, td { padding: 9px 7px; max-width: 200px; }
+      th.col-code, td.col-code, th.col-date, td.col-date { display: none; }
+
+      th.col-star, td.col-star {
+        position: sticky; left: 0; z-index: 6; background: #ffffff;
+        width: 40px; min-width: 40px; max-width: 40px;
+      }
+      th.col-star { z-index: 8; background: #eef2f7; box-shadow: 1px 0 0 var(--line); }
+      td.col-star { box-shadow: 1px 0 0 var(--line); }
+      th.col-name { left: 40px; z-index: 7; min-width: 118px; max-width: 150px; }
+      td.col-name, td.col-name.offset { left: 40px; z-index: 5; min-width: 118px; max-width: 150px; }
+      tbody tr:nth-child(even) td.col-star { background: #fafbfc; }
+      tbody tr:hover td.col-star { background: var(--accent-soft); }
+      tbody tr.selected td.col-star { background: #dfeeff; }
+
+      .empty-state { min-height: 300px; padding: 20px 14px; }
+      .drop-zone { min-height: 160px; margin: 14px 0; padding: 20px 14px; }
+      .drop-zone .dz-title { font-size: 14px; }
+
+      /* 详情在手机上改为底部弹层 */
+      .detail-pane {
+        position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+        width: 100%; height: min(86vh, 760px); height: min(86dvh, 760px);
+        min-height: 0; max-height: 86vh; max-height: 86dvh;
+        border: 0; border-radius: 16px 16px 0 0;
+        box-shadow: 0 -20px 60px rgba(15,23,42,0.28);
+        transform: translateY(105%); visibility: hidden;
+        transition: transform 280ms ease, visibility 0s linear 280ms;
+        padding-bottom: env(safe-area-inset-bottom);
+      }
+      .detail-pane.open { transform: translateY(0); visibility: visible; transition: transform 280ms ease; }
+      .detail-head { position: relative; padding: 14px 52px 10px 14px; }
+      .detail-close { display: flex; }
+      .detail-name h2 { font-size: 17px; }
+      .metric-grid { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; padding: 10px 12px; }
+      .metric { padding: 8px 9px; }
+      .metric-value { font-size: 15px; }
+      .field-list { padding: 6px 12px calc(14px + env(safe-area-inset-bottom)); }
+      .field-row { grid-template-columns: minmax(88px, 44%) minmax(0,1fr); gap: 8px; padding: 7px 0; }
+
+      .toast { bottom: calc(18px + env(safe-area-inset-bottom)); z-index: 60; }
+    }
+
+    @media (max-width: 360px) {
+      .actions .btn { font-size: 12px; padding: 0 8px; }
+      .actions label.btn { padding: 0 8px; }
+      #updateBtn { font-size: 12px; }
+      #exportBtn { flex-basis: 40px; width: 40px; }
+      .metric-value { font-size: 14px; }
+      .card-metric { padding: 5px 6px; gap: 4px; }
+      .card-metric .cm-value { font-size: 12px; }
+      .card-metric .cm-pct { font-size: 10px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- 顶栏 -->
+    <header class="topbar">
+      <div class="brand">
+        <h1>指数数据小程序</h1>
+        <div class="meta" id="fileMeta">就绪</div>
+      </div>
+      <div class="actions">
+        <label class="btn" for="fileInput" title="导入 CSV 文件（可一次选择多个分位点周期）">📂 导入CSV</label>
+        <input id="fileInput" type="file" accept=".csv,.tsv,.txt" multiple style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">
+        <span class="status" id="statusBar">等待加载...</span>
+        <span class="sep"></span>
+        <button class="btn btn-primary" id="updateBtn" type="button">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path><path d="M3 22v-6h6"></path><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path></svg>
+          更新数据
+        </button>
+
+        <span class="sep"></span>
+        <button class="btn btn-icon" id="exportBtn" type="button" title="导出 CSV">⬇</button>
+        <button class="btn" id="mobileShareBtn" type="button" title="在手机上打开">📱 手机访问</button>
+        <button class="btn btn-icon" id="stopBtn" type="button" title="停止服务" style="color:var(--bad);">⏹</button>
+      </div>
+    </header>
+
+    <!-- 工具栏 -->
+    <section class="toolbar">
+      <label class="search">
+        <svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><path d="M21 21l-4.3-4.3"></path></svg>
+        <input id="searchInput" type="search" placeholder="搜索指数名称、代码或任意字段">
+      </label>
+      <select class="select" id="columnSelect" title="搜索范围">
+        <option value="__all__">全部字段</option>
+      </select>
+      <select class="select select-sm" id="batchSelect" title="历史批次">
+        <option value="latest">最新数据</option>
+      </select>
+      <select class="select select-sm" id="periodSelect" title="分位点周期（分位点计算所取的历史区间）">
+        <option value="10年">10年分位点</option>
+      </select>
+      <button class="fav-toggle" id="favOnlyBtn" type="button" title="只看自选">⭐ 只看自选</button>
+      <div class="column-filter">
+        <button class="filter-button" id="columnFilterBtn" type="button" aria-expanded="false">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M4 6h16"></path><path d="M7 12h10"></path><path d="M10 18h4"></path></svg>
+          <span id="columnFilterLabel">指标列</span>
+        </button>
+        <div class="filter-panel" id="columnFilterPanel">
+          <div class="filter-panel-head">
+            <span class="filter-title" id="columnFilterTitle">选择列表指标</span>
+            <button class="filter-small" id="selectDefaultColumnsBtn" type="button">默认</button>
+          </div>
+          <div class="filter-list" id="columnFilterList"></div>
+          <div class="filter-panel-foot">
+            <button class="filter-small" id="selectAllColumnsBtn" type="button">全选</button>
+            <button class="filter-small" id="selectPercentColumnsBtn" type="button">只看分位点</button>
+            <button class="filter-small" id="clearColumnsBtn" type="button">清空</button>
+          </div>
+        </div>
+      </div>
+      <div class="counter" id="counter">0 / 0</div>
+    </section>
+
+    <!-- 主体 -->
+    <main class="workspace">
+      <section class="table-pane" id="dropTarget">
+        <div class="loading" id="loading"><div class="spinner"></div><span>加载数据中...</span></div>
+        <div class="empty-state" id="emptyState" style="display:none">
+          <div>
+            <div class="empty-title">暂无数据</div>
+            <p class="empty-copy">点击右上角「📂 导入CSV」选择文件，或直接将 CSV 文件拖放到此区域。</p>
+            <div class="drop-zone" id="dropZone">
+              <div>
+                <div class="dz-title">拖放 CSV 文件到此处</div>
+                <div class="dz-hint">支持理杏仁导出的 CSV / TSV 格式，自动清洗公式式数字<br>
+                  可一次拖入多个文件（如 1年 / 3年 / 5年 / 10年 / 20年 / 上市以来），自动按文件名识别分位点周期并合并</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="mobile-listbar" id="mobileListBar" style="display:none">
+          <span id="mobileCount">0 / 0</span>
+          <button class="view-toggle" id="viewToggleBtn" type="button" aria-pressed="false">表格视图</button>
+        </div>
+        <div class="table-wrap" id="tableWrap">
+          <table id="dataTable" aria-label="指数数据表"></table>
+        </div>
+        <div class="card-list" id="cardList" style="display:none"></div>
+      </section>
+
+      <aside class="detail-pane" id="detailPane">
+        <div class="detail-head">
+          <button class="detail-close" id="detailCloseBtn" type="button" aria-label="关闭详情">✕</button>
+          <div class="detail-name">
+            <h2 id="detailTitle">未选择指数</h2>
+            <span class="detail-code" id="detailCode"></span>
+          </div>
+          <div class="detail-sub" id="detailSub">点击表格中的任意一行查看完整数据</div>
+        </div>
+        <div class="metric-grid" id="metricGrid"></div>
+        <div class="field-list" id="fieldList"></div>
+      </aside>
+    </main>
+  </div>
+
+  <div class="sheet-backdrop" id="sheetBackdrop"></div>
+
+  <!-- 手机访问 -->
+  <div class="share-backdrop" id="shareBackdrop"></div>
+  <div class="share-panel" id="sharePanel" role="dialog" aria-modal="true" aria-labelledby="shareTitle">
+    <button class="share-close" id="shareCloseBtn" type="button" aria-label="关闭">✕</button>
+    <h2 id="shareTitle">手机访问</h2>
+    <p>让手机和电脑连接同一个 Wi-Fi，然后用手机浏览器打开下面的地址：</p>
+    <div class="share-url" id="shareUrl">获取中…</div>
+    <div class="share-qr"><canvas id="shareQr" width="220" height="220" aria-label="手机访问二维码"></canvas></div>
+    <p class="share-qr-hint">用手机相机或微信扫一扫</p>
+    <div class="share-actions">
+      <button class="btn btn-primary" id="copyUrlBtn" type="button">复制链接</button>
+      <button class="btn" id="shareDoneBtn" type="button">知道了</button>
+    </div>
+    <p class="share-hint">如果手机打不开：确认两台设备在同一个 Wi-Fi，并允许 Windows 防火墙放行 Python / 本程序。</p>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+
+  <script src="qrcode.js"></script>
+  <script src="static-app.js"></script>
+
+  <script>
+    (function () {
+      // ═══════════════════════════════════════════════
+      // 状态
+      // ═══════════════════════════════════════════════
+
+      const state = {
+        rows: [],
+        columns: [],
+        columnIndex: new Map(),     // 基础列名 → Map(周期 → 实际列名)
+        filtered: [],
+        selectedIndex: -1,
+        sortKey: "",
+        sortDir: 1,
+        selectedColumns: [],        // 存「基础列名」，如 PE-TTM(分位点%)，与周期解耦
+        favorites: new Set(),       // 自选指数代码集合
+        favOnly: false,
+        currentBatch: null,
+        batches: [],
+        sources: [],
+        activeSourceId: null,
+        period: "",                 // 当前分位点周期，如 "10年"；ALL_PERIODS 表示全部
+        defaultPeriod: "10年",
+        periodOptions: [],          // 后端支持的全部周期 [{key,label}]
+        mobileCards: window.matchMedia("(max-width: 760px)").matches
+      };
+
+      // ═══════════════════════════════════════════════
+      // DOM 引用
+      // ═══════════════════════════════════════════════
+
+      const els = {
+        fileMeta: document.getElementById("fileMeta"),
+        statusBar: document.getElementById("statusBar"),
+        searchInput: document.getElementById("searchInput"),
+        columnSelect: document.getElementById("columnSelect"),
+        batchSelect: document.getElementById("batchSelect"),
+        periodSelect: document.getElementById("periodSelect"),
+        counter: document.getElementById("counter"),
+        dataTable: document.getElementById("dataTable"),
+        detailTitle: document.getElementById("detailTitle"),
+        detailCode: document.getElementById("detailCode"),
+        detailSub: document.getElementById("detailSub"),
+        metricGrid: document.getElementById("metricGrid"),
+        fieldList: document.getElementById("fieldList"),
+        tableWrap: document.getElementById("tableWrap"),
+        loading: document.getElementById("loading"),
+        emptyState: document.getElementById("emptyState"),
+        exportBtn: document.getElementById("exportBtn"),
+        stopBtn: document.getElementById("stopBtn"),
+        updateBtn: document.getElementById("updateBtn"),
+        favOnlyBtn: document.getElementById("favOnlyBtn"),
+        columnFilterBtn: document.getElementById("columnFilterBtn"),
+        columnFilterLabel: document.getElementById("columnFilterLabel"),
+        columnFilterPanel: document.getElementById("columnFilterPanel"),
+        columnFilterList: document.getElementById("columnFilterList"),
+        columnFilterTitle: document.getElementById("columnFilterTitle"),
+        selectDefaultColumnsBtn: document.getElementById("selectDefaultColumnsBtn"),
+        selectAllColumnsBtn: document.getElementById("selectAllColumnsBtn"),
+        selectPercentColumnsBtn: document.getElementById("selectPercentColumnsBtn"),
+        clearColumnsBtn: document.getElementById("clearColumnsBtn"),
+        toast: document.getElementById("toast"),
+        fileInput: document.getElementById("fileInput"),
+        dropZone: document.getElementById("dropZone"),
+        dropTarget: document.getElementById("dropTarget"),
+        mobileListBar: document.getElementById("mobileListBar"),
+        mobileCount: document.getElementById("mobileCount"),
+        viewToggleBtn: document.getElementById("viewToggleBtn"),
+        cardList: document.getElementById("cardList"),
+        detailPane: document.getElementById("detailPane"),
+        detailCloseBtn: document.getElementById("detailCloseBtn"),
+        sheetBackdrop: document.getElementById("sheetBackdrop"),
+        mobileShareBtn: document.getElementById("mobileShareBtn"),
+        sharePanel: document.getElementById("sharePanel"),
+        shareBackdrop: document.getElementById("shareBackdrop"),
+        shareUrl: document.getElementById("shareUrl"),
+        shareQr: document.getElementById("shareQr"),
+        copyUrlBtn: document.getElementById("copyUrlBtn"),
+        shareCloseBtn: document.getElementById("shareCloseBtn"),
+        shareDoneBtn: document.getElementById("shareDoneBtn")
+      };
+
+      // ═══════════════════════════════════════════════
+      // 工具函数（从原版保留）
+      // ═══════════════════════════════════════════════
+
+      function cleanCell(value) {
+        if (value === null || value === undefined) return "";
+        let text = String(value).trim().replace(/^\uFEFF/, "");
+        if (text.startsWith("=")) text = text.slice(1).trim();
+        if ((text.startsWith('"') && text.endsWith('"')) || (text.startsWith("'") && text.endsWith("'"))) {
+          text = text.slice(1, -1);
+        }
+        return text.trim();
+      }
+
+      function parseNumber(value) {
+        const text = cleanCell(value).replace(/,/g, "");
+        if (!text || text === "-" || text === "--") return null;
+        const normalized = text.endsWith("%") ? text.slice(0, -1) : text;
+        const number = Number(normalized);
+        if (!Number.isFinite(number)) return null;
+        return text.endsWith("%") ? number / 100 : number;
+      }
+
+      function isPercentColumn(column) {
+        return /分位点%|分位$|涨跌幅|收益率|ROE|股息率|占比|比例|率/.test(column);
+      }
+
+      function isTextColumn(column) {
+        return /代码|名称|时间|日期|行业|类型|分类|简称/.test(column);
+      }
+
+      function displayColumnHeader(column) {
+        if (column === "指数代码") return "代码";
+        if (column === "发布时间") return "发布";
+        if (state.period === ALL_PERIODS) return column;
+        return baseOf(column);
+      }
+
+      function columnClass(column) {
+        if (/代码/.test(column)) return "col-code";
+        if (/时间|日期/.test(column)) return "col-date";
+        if (/名称|简称/.test(column)) return "col-name";
+        return "";
+      }
+
+      function formatValue(column, value) {
+        const text = cleanCell(value);
+        if (!text) return "";
+        const number = parseNumber(text);
+        if (number === null) return text;
+        if (isPercentColumn(column)) return formatPercent(number);
+        if (/点位|当前值|最小值|最大|分位点值|PE|PB|PS/.test(column)) return trimNumber(number, 4);
+        return text;
+      }
+
+      function formatPercent(number) {
+        const pct = Math.abs(number) <= 1.5 ? number * 100 : number;
+        return `${trimNumber(pct, 2)}%`;
+      }
+
+      function trimNumber(number, digits) {
+        return Number(number.toFixed(digits)).toLocaleString("zh-CN", { maximumFractionDigits: digits });
+      }
+
+      function valueTone(column, value) {
+        const number = parseNumber(value);
+        if (number === null) return "";
+        if (/涨跌幅|收益率|ROE/.test(column)) {
+          if (number > 0) return "num-good";
+          if (number < 0) return "num-bad";
+        }
+        if (/分位点%|分位$/.test(column)) {
+          if (number <= 0.2) return "num-good";
+          if (number >= 0.8) return "num-bad";
+          if (number >= 0.6) return "num-warn";
+        }
+        return "";
+      }
+
+      // ═══════════════════════════════════════════════
+      // 分位点周期 / 列模型
+      // ═══════════════════════════════════════════════
+
+      const ALL_PERIODS = "__all__";
+      const LOCKED_COLUMNS = ["指数代码", "指数名称", "发布时间"];
+
+      // 与分位点周期相关的列限定词（理杏仁导出 CSV / 接口都用这些后缀）
+      const PERIOD_BANDS = ["分位点%", "最小值", "20%分位点值", "50%分位点值", "80%分位点值", "最大正值"];
+      // 周期写在括号里：PE-TTM(分位点%·10年)
+      const PERIOD_RE = /·(上市以来|\d{1,2}年)\)$/;
+
+      function splitPeriod(column) {
+        const m = String(column).match(PERIOD_RE);
+        if (!m) return { base: column, period: "" };
+        return { base: `${column.slice(0, m.index)})`, period: m[1] };
+      }
+
+      function isBandColumn(column) {
+        return PERIOD_BANDS.some(b => String(column).endsWith(`(${b})`));
+      }
+
+      // 去掉周期后缀 → 基础列名（如 PE-TTM(分位点%·5年) → PE-TTM(分位点%)）
+      function baseOf(column) {
+        return splitPeriod(column).base;
+      }
+
+      // 列所属周期；老批次里没有周期标记的分位点列，按默认周期（10年）处理
+      function periodOf(column) {
+        const p = splitPeriod(column).period;
+        if (p) return p;
+        return isBandColumn(column) ? state.defaultPeriod : "";
+      }
+
+      function buildColumnIndex() {
+        const index = new Map();
+        state.columns.forEach(col => {
+          const base = baseOf(col);
+          const period = periodOf(col);
+          if (!index.has(base)) index.set(base, new Map());
+          index.get(base).set(period, col);
+        });
+        state.columnIndex = index;
+      }
+
+      // 把基础列名解析成当前周期下的实际列名
+      function resolveColumn(base, period) {
+        const map = state.columnIndex.get(base);
+        if (!map) return null;
+        if (period && map.has(period)) return map.get(period);
+        if (map.has("")) return map.get("");   // 与周期无关的列
+        return null;
+      }
+
+      // 数据中实际存在的周期，按后端顺序排列
+      function presentPeriods() {
+        const found = new Set();
+        state.columnIndex.forEach(map => map.forEach((_col, period) => { if (period) found.add(period); }));
+        const ordered = [];
+        state.periodOptions.forEach(p => {
+          if (found.has(p.label)) { ordered.push(p.label); found.delete(p.label); }
+        });
+        [...found].sort((a, b) => a.localeCompare(b, "zh-CN")).forEach(p => ordered.push(p));
+        return ordered;
+      }
+
+      // 「全部分位点」模式下，详情面板使用默认周期
+      function detailPeriod() {
+        if (state.period !== ALL_PERIODS) return state.period;
+        const periods = presentPeriods();
+        return periods.includes(state.defaultPeriod) ? state.defaultPeriod : (periods[0] || "");
+      }
+
+      const METRIC_ORDER = ["PE-TTM", "PB", "PS-TTM", "股息率", "净资产收益率(ROE)",
+                            "涨跌幅", "今年以来涨跌幅", "收盘点位", "关注度"];
+      const BAND_ORDER = ["当前值", "分位点%", "最小值", "20%分位点值", "50%分位点值", "80%分位点值", "最大正值"];
+
+      function parseBase(base) {
+        if (base.startsWith("净资产收益率(ROE)")) {
+          return { metric: "净资产收益率(ROE)", band: base.slice("净资产收益率(ROE)".length) };
+        }
+        const i = base.indexOf("(");
+        if (i < 0) return { metric: base, band: "" };
+        return { metric: base.slice(0, i), band: base.slice(i + 1).replace(/\)$/, "") };
+      }
+
+      function columnSortKey(base) {
+        const { metric, band } = parseBase(base);
+        let mi = METRIC_ORDER.findIndex(m => metric === m || metric.startsWith(m));
+        if (mi < 0) mi = METRIC_ORDER.length;
+        let bi = BAND_ORDER.indexOf(band);
+        if (bi < 0) bi = band ? BAND_ORDER.length : 0;
+        return [mi, metric, bi, band];
+      }
+
+      function compareColumns(a, b) {
+        const ka = columnSortKey(baseOf(a));
+        const kb = columnSortKey(baseOf(b));
+        for (let i = 0; i < ka.length; i++) {
+          if (ka[i] === kb[i]) continue;
+          return ka[i] < kb[i] ? -1 : 1;
+        }
+        return String(a).localeCompare(String(b), "zh-CN");
+      }
+
+      // 所有可选的基础列（不含锁定列），已排序
+      function getOptionalBaseColumns() {
+        const bases = [];
+        state.columns.forEach(col => {
+          const base = baseOf(col);
+          if (LOCKED_COLUMNS.includes(base)) return;
+          if (!bases.includes(base)) bases.push(base);
+        });
+        return bases.sort(compareColumns);
+      }
+
+      // 默认展示的基础列
+      const DEFAULT_BASE_COLUMNS = [
+        "涨跌幅", "收盘点位", "今年以来涨跌幅",
+        "PE-TTM(当前值)", "PE-TTM(分位点%)",
+        "PB(当前值)", "PB(分位点%)",
+        "PS-TTM(当前值)", "PS-TTM(分位点%)",
+        "股息率(当前值)", "股息率(分位点%)"
+      ];
+
+      function getDefaultSelectedColumns() {
+        const bases = getOptionalBaseColumns();
+        const picked = DEFAULT_BASE_COLUMNS.filter(b => bases.includes(b));
+        const roe = bases.filter(b => b.startsWith("净资产收益率(ROE)")).slice(0, 1);
+        roe.forEach(b => { if (!picked.includes(b)) picked.push(b); });
+        return picked.length ? picked : bases.slice(0, 6);
+      }
+
+      function getPercentBaseColumns() {
+        return getOptionalBaseColumns().filter(b => ["分位点%", "当前值"].includes(parseBase(b).band));
+      }
+
+      // 给基础列名补上当前周期，如 PE-TTM(分位点%) → PE-TTM(分位点%·5年)
+      function withPeriodLabel(base, period) {
+        const p = period === undefined ? state.period : period;
+        if (!p || p === ALL_PERIODS) return base;
+        if (!PERIOD_BANDS.includes(parseBase(base).band)) return base;
+        return base.replace(/\)$/, `·${p})`);
+      }
+
+      function getVisibleColumns() {
+        if (!state.columns.length) return [];
+        const locked = state.columns.filter(c => LOCKED_COLUMNS.includes(c));
+        const picked = [];
+        const push = col => { if (col && !picked.includes(col) && !locked.includes(col)) picked.push(col); };
+        state.selectedColumns.forEach(base => {
+          const map = state.columnIndex.get(base);
+          if (!map) return;
+          if (state.period === ALL_PERIODS) {
+            const periods = presentPeriods().filter(p => map.has(p));
+            if (periods.length) periods.forEach(p => push(map.get(p)));
+            else push(map.get(""));
+          } else {
+            push(resolveColumn(base, state.period));
+          }
+        });
+        picked.sort(compareColumns);
+        return [...locked, ...picked];
+      }
+
+      // 切换周期时把排序键映射到对应周期的列
+      function remapSortKey() {
+        if (!state.sortKey) return;
+        if (state.columns.includes(state.sortKey) && state.period === ALL_PERIODS) return;
+        const base = baseOf(state.sortKey);
+        state.sortKey = resolveColumn(base, state.period) || "";
+        if (!state.sortKey) state.sortDir = 1;
+      }
+
+      // ═══════════════════════════════════════════════
+      // CSV 解析（从原版保留）
+      // ═══════════════════════════════════════════════
+
+      function splitDelimited(text, delimiter) {
+        const rows = [];
+        let row = [];
+        let cell = "";
+        let inQuotes = false;
+        for (let i = 0; i < text.length; i++) {
+          const ch = text[i], next = text[i + 1];
+          if (ch === '"') {
+            if (inQuotes && next === '"') { cell += '"'; i++; }
+            else { inQuotes = !inQuotes; cell += ch; }
+          } else if (ch === delimiter && !inQuotes) {
+            row.push(cleanCell(cell)); cell = "";
+          } else if ((ch === '\n' || ch === '\r') && !inQuotes) {
+            if (ch === '\r' && next === '\n') i++;
+            row.push(cleanCell(cell));
+            if (row.some(v => v !== '')) rows.push(row);
+            row = []; cell = "";
+          } else { cell += ch; }
+        }
+        row.push(cleanCell(cell));
+        if (row.some(v => v !== '')) rows.push(row);
+        return rows;
+      }
+
+      function detectDelimiter(text) {
+        const sample = text.split(/\r?\n/).slice(0, 5).join('\n');
+        const tab = (sample.match(/\t/g) || []).length;
+        const comma = (sample.match(/,/g) || []).length;
+        if (tab > comma) return '\t';
+        return ',';
+      }
+
+      function decodeText(buffer) {
+        const bytes = new Uint8Array(buffer);
+        if (bytes[0] === 0xFF && bytes[1] === 0xFE) return new TextDecoder('utf-16le').decode(bytes);
+        if (bytes[0] === 0xFE && bytes[1] === 0xFF) return new TextDecoder('utf-16be').decode(bytes);
+        try { return new TextDecoder('utf-8', { fatal: true }).decode(bytes); }
+        catch (_) { return new TextDecoder('utf-8').decode(bytes); }
+      }
+
+      function parseCSVRows(text) {
+        const delim = detectDelimiter(text);
+        const matrix = splitDelimited(text, delim);
+        if (!matrix.length) return { columns: [], rows: [] };
+        // 找表头行
+        let headerIdx = 0;
+        for (let i = 0; i < matrix.length; i++) {
+          if (matrix[i].filter(Boolean).length >= 2) { headerIdx = i; break; }
+        }
+        const rawHeaders = matrix[headerIdx].map(cleanCell);
+        const columns = rawHeaders.map((h, i) => h || `列${i + 1}`);
+        const dataRows = [];
+        for (let i = headerIdx + 1; i < matrix.length; i++) {
+          const line = matrix[i];
+          if (!line.some(c => cleanCell(c) !== '')) continue;
+          const row = { __rowId: dataRows.length };
+          columns.forEach((col, j) => { row[col] = cleanCell(line[j]); });
+          dataRows.push(row);
+        }
+        return { columns, rows: dataRows };
+      }
+
+      // ═══════════════════════════════════════════════
+      // CSV 导入流程
+      // ═══════════════════════════════════════════════
+
+      // 从文件名识别分位点周期，如「指数价值_总市值加权_5年_20261003.csv」→ 5年
+      function detectPeriodFromName(fileName) {
+        const m = String(fileName || "").match(/(?:^|[^0-9])(上市以来|\d{1,2}年)(?![0-9])/);
+        return m ? m[1] : "";
+      }
+
+      // 给周期相关的列补上「·周期」后缀（与后端 scraper.period_column 一致）
+      function tagPeriodColumn(column, periodLabel) {
+        if (!periodLabel) return column;
+        for (const band of PERIOD_BANDS) {
+          const suffix = `(${band})`;
+          if (column.endsWith(suffix)) {
+            return `${column.slice(0, -suffix.length)}(${band}·${periodLabel})`;
+          }
+        }
+        return column;
+      }
+
+      async function importFiles(fileList) {
+        const files = Array.from(fileList || []);
+        if (!files.length) return;
+        const merged = new Map();
+        const usedPeriods = new Set();
+        const undetected = [];
+        const fallbackPeriod = (state.period && state.period !== ALL_PERIODS)
+          ? state.period : state.defaultPeriod;
+
+        try {
+          for (const file of files) {
+            showToast(`正在解析 ${file.name}...`);
+            const buffer = await file.arrayBuffer();
+            const parsed = parseCSVRows(decodeText(buffer));
+            if (!parsed.columns.length || !parsed.rows.length) {
+              throw new Error(`${file.name}：未识别到有效表头或数据行`);
+            }
+            const codeKey = parsed.columns.find(c => /指数代码|代码/.test(c)) || parsed.columns[0];
+            const nameKey = parsed.columns.find(c => /指数名称|名称|简称/.test(c)) || parsed.columns[1];
+            const dateKey = parsed.columns.find(c => /发布时间|日期|时间/.test(c)) || '';
+
+            const detected = detectPeriodFromName(file.name);
+            const periodLabel = detected || fallbackPeriod;
+            if (!detected) undetected.push(file.name);
+            usedPeriods.add(periodLabel);
+
+            parsed.rows.forEach(r => {
+              const code = cleanCell(r[codeKey]);
+              const name = cleanCell(r[nameKey]);
+              if (!code && !name) return;
+              if (`${code}${name}`.includes("数据来源")) return;
+              const key = code || name;
+              if (!merged.has(key)) {
+                merged.set(key, {
+                  index_code: code || name,
+                  index_name: name || code,
+                  data_date: '',
+                  fields: {}
+                });
+              }
+              const row = merged.get(key);
+              if (!row.data_date && dateKey) row.data_date = cleanCell(r[dateKey]);
+              parsed.columns.forEach(c => {
+                if (c === codeKey || c === nameKey || c === dateKey) return;
+                const value = cleanCell(r[c]);
+                if (!value) return;
+                const tagged = tagPeriodColumn(c, periodLabel);
+                if (!row.fields[tagged]) row.fields[tagged] = value;
+              });
+            });
+          }
+
+          const rows = [...merged.values()];
+          if (!rows.length) throw new Error('未识别到有效数据行');
+          const periodText = [...usedPeriods].join(" / ");
+          showToast(`解析完成 ${rows.length} 条 · ${periodText}，正在保存...`);
+
+          const resp = await fetch('/api/import', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ source_id: state.activeSourceId, rows })
+          });
+          if (!resp.ok) {
+            const err = await resp.json();
+            throw new Error(err.error || '导入失败');
+          }
+          const result = await resp.json();
+          showToast(
+            `✅ 导入成功：${result.record_count} 条（分位点周期 ${periodText}）` +
+            (undetected.length ? `；${undetected.length} 个文件名未标注周期，按 ${fallbackPeriod} 处理` : "")
+          );
+          els.fileInput.value = '';
+          // 刷新
+          await loadBatches();
+          await loadIndexData(result.batch_id);
+        } catch (err) {
+          showToast(`❌ 导入失败：${err.message}`);
+          console.error(err);
+          els.fileInput.value = '';
+        }
+      }
+
+      // 文件选择事件
+      els.fileInput.addEventListener('change', async () => {
+        await importFiles(els.fileInput.files);
+      });
+
+      // 拖放事件
+      ['dragenter', 'dragover'].forEach(evt => {
+        els.dropTarget.addEventListener(evt, e => {
+          e.preventDefault();
+          els.dropZone && els.dropZone.classList.add('dragging');
+        });
+      });
+      ['dragleave', 'drop'].forEach(evt => {
+        els.dropTarget.addEventListener(evt, e => {
+          e.preventDefault();
+          els.dropZone && els.dropZone.classList.remove('dragging');
+        });
+      });
+      els.dropTarget.addEventListener('drop', async e => {
+        await importFiles(e.dataTransfer.files);
+      });
+
+      // 点击拖放区也触发文件选择
+      if (els.dropZone) {
+        els.dropZone.addEventListener('click', () => els.fileInput.click());
+      }
+
+      // ═══════════════════════════════════════════════
+      // Toast
+      // ═══════════════════════════════════════════════
+
+      let toastTimer = 0;
+      function showToast(message) {
+        window.clearTimeout(toastTimer);
+        els.toast.textContent = message;
+        els.toast.classList.add("show");
+        toastTimer = window.setTimeout(() => els.toast.classList.remove("show"), 2200);
+      }
+
+      // ═══════════════════════════════════════════════
+      // API 调用
+      // ═══════════════════════════════════════════════
+
+      async function parseApiResponse(res) {
+        if (!res.ok) {
+          let message = `API ${res.status}`;
+          try {
+            const err = await res.json();
+            message = err.error || err.message || message;
+          } catch (_) {
+            // 保留状态码信息
+          }
+          throw new Error(message);
+        }
+        return res.json();
+      }
+
+      async function apiGet(path) {
+        return parseApiResponse(await fetch(path));
+      }
+
+      async function apiPost(path, body) {
+        return parseApiResponse(await fetch(path, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        }));
+      }
+
+      async function apiPut(path, body) {
+        return parseApiResponse(await fetch(path, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        }));
+      }
+
+      async function apiDelete(path) {
+        return parseApiResponse(await fetch(path, { method: "DELETE" }));
+      }
+
+      // ═══════════════════════════════════════════════
+      // 数据加载
+      // ═══════════════════════════════════════════════
+
+      async function loadSources() {
+        state.sources = await apiGet("/api/sources");
+        if (state.sources.length > 0 && !state.activeSourceId) {
+          state.activeSourceId = state.sources[0].id;
+        }
+      }
+
+      async function loadBatches() {
+        if (!state.activeSourceId) return;
+        state.batches = await apiGet(`/api/batches?source_id=${state.activeSourceId}`);
+        if (state.batches.length > 0) {
+          state.currentBatch = state.batches[0];
+        } else {
+          state.currentBatch = null;
+        }
+        buildBatchSelect();
+      }
+
+      async function loadIndexData(batchId) {
+        let url = `/api/index-data?source_id=${state.activeSourceId}`;
+        if (batchId) url += `&batch_id=${batchId}`;
+        const result = await apiGet(url);
+        setData(result.data, result.columns, result.batch);
+      }
+
+      async function loadFavorites() {
+        const favs = await apiGet("/api/favorites");
+        state.favorites = new Set(favs.map(f => f.index_code));
+      }
+
+      async function loadPreferences() {
+        try {
+          const prefs = await apiGet("/api/preferences");
+          if (prefs.sortKey) state.sortKey = prefs.sortKey;
+          if (prefs.sortDir) state.sortDir = prefs.sortDir;
+          if (prefs.selectedColumns) state.selectedColumns = prefs.selectedColumns;
+          if (prefs.favOnly !== undefined) state.favOnly = prefs.favOnly === true;
+          if (prefs.searchScope) els.columnSelect.value = prefs.searchScope;
+          if (prefs.percentilePeriod) state.period = prefs.percentilePeriod;
+        } catch (err) {
+          // 无偏好时忽略
+        }
+      }
+
+      async function savePreferences() {
+        try {
+          await apiPut("/api/preferences/sortKey", { value: state.sortKey });
+          await apiPut("/api/preferences/sortDir", { value: state.sortDir });
+          await apiPut("/api/preferences/selectedColumns", { value: state.selectedColumns });
+          await apiPut("/api/preferences/favOnly", { value: state.favOnly });
+          await apiPut("/api/preferences/searchScope", { value: els.columnSelect.value });
+          await apiPut("/api/preferences/percentilePeriod", { value: state.period });
+        } catch (err) {
+          // 静默失败
+        }
+      }
+
+      async function loadPeriods() {
+        try {
+          const data = await apiGet(`/api/periods?source_id=${state.activeSourceId || ""}`);
+          if (Array.isArray(data.periods) && data.periods.length) {
+            state.periodOptions = data.periods;
+          }
+          if (data.default) state.defaultPeriod = data.default;
+        } catch (err) {
+          // 接口不可用时按 10 年默认周期处理
+        }
+      }
+
+      // ═══════════════════════════════════════════════
+      // 数据设置
+      // ═══════════════════════════════════════════════
+
+      function setData(data, columns, batch) {
+        state.rows = data.map((row, index) => ({ ...row, __rowId: index }));
+        state.columns = columns;
+        state.currentBatch = batch;
+        state.selectedIndex = state.rows.length ? 0 : -1;
+
+        buildColumnIndex();
+        buildPeriodSelect();
+
+        if (state.sortKey && !state.columns.includes(state.sortKey)) {
+          state.sortKey = "";
+          state.sortDir = 1;
+        }
+        remapSortKey();
+
+        const optional = getOptionalBaseColumns();
+        state.selectedColumns = state.selectedColumns.filter(c => optional.includes(c));
+        if (!state.selectedColumns.length) {
+          state.selectedColumns = getDefaultSelectedColumns();
+        }
+
+        els.searchInput.value = "";
+        buildColumnSelect();
+        buildColumnFilter();
+        updateStatusBar();
+        applyFilter();
+        els.fileMeta.textContent = batch
+          ? `${batch.batch_date} · ${state.rows.length} 行 · ${state.columns.length} 列`
+          : `${state.rows.length} 行 · ${state.columns.length} 列`;
+
+        // 更新自选按钮状态
+        els.favOnlyBtn.classList.toggle("active", state.favOnly);
+      }
+
+      // 分位点周期选择器：只列出数据里真实存在的周期
+      function buildPeriodSelect() {
+        const periods = presentPeriods();
+        els.periodSelect.innerHTML = "";
+        if (!periods.length) {
+          const opt = document.createElement("option");
+          opt.value = "";
+          opt.textContent = "无分位点数据";
+          els.periodSelect.appendChild(opt);
+          els.periodSelect.disabled = true;
+          state.period = "";
+          return;
+        }
+        els.periodSelect.disabled = false;
+        periods.forEach(p => {
+          const opt = document.createElement("option");
+          opt.value = p;
+          opt.textContent = `${p}分位点`;
+          els.periodSelect.appendChild(opt);
+        });
+        if (periods.length > 1) {
+          const opt = document.createElement("option");
+          opt.value = ALL_PERIODS;
+          opt.textContent = "全部分位点";
+          els.periodSelect.appendChild(opt);
+        }
+        if (state.period !== ALL_PERIODS || periods.length < 2) {
+          if (!periods.includes(state.period)) {
+            state.period = periods.includes(state.defaultPeriod) ? state.defaultPeriod : periods[0];
+          }
+        }
+        els.periodSelect.value = state.period;
+      }
+
+      function buildColumnSelect() {
+        const keep = els.columnSelect.value;
+        els.columnSelect.innerHTML = '<option value="__all__">全部字段</option>';
+        getVisibleColumns().forEach(col => {
+          if (LOCKED_COLUMNS.includes(col)) return;
+          const opt = document.createElement("option");
+          opt.value = col;
+          opt.textContent = displayColumnHeader(col);
+          els.columnSelect.appendChild(opt);
+        });
+        els.columnSelect.value = [...els.columnSelect.options].some(o => o.value === keep)
+          ? keep : "__all__";
+      }
+
+      function buildBatchSelect() {
+        els.batchSelect.innerHTML = '<option value="latest">最新数据</option>';
+        state.batches.forEach(b => {
+          const opt = document.createElement("option");
+          opt.value = b.id;
+          // 手机上宽度有限，省略年份；完整日期放在 title 里
+          opt.textContent = isMobile()
+            ? `${b.batch_date.slice(5)} · ${b.record_count}`
+            : `${b.batch_date} · ${b.record_count}条`;
+          opt.title = `${b.batch_date} · ${b.record_count}条`;
+          els.batchSelect.appendChild(opt);
+        });
+        // 选中当前批次
+        if (state.currentBatch) {
+          els.batchSelect.value = state.currentBatch.id;
+        }
+      }
+
+      function updateStatusBar() {
+        const src = state.sources.find(s => s.id === state.activeSourceId);
+        const srcName = src ? src.name : "未知数据源";
+        if (state.currentBatch) {
+          els.statusBar.textContent = `${srcName} · ${state.currentBatch.batch_date} · ${state.currentBatch.record_count}条`;
+        } else {
+          els.statusBar.textContent = `${srcName} · 无数据`;
+        }
+      }
+
+      // ═══════════════════════════════════════════════
+      // 列筛选
+      // ═══════════════════════════════════════════════
+
+      function buildColumnFilter() {
+        els.columnFilterList.innerHTML = "";
+        els.columnFilterTitle.textContent = state.period === ALL_PERIODS
+          ? "选择列表指标（全部分位点）"
+          : `选择列表指标（${state.period || "默认"}分位点）`;
+        const optional = getOptionalBaseColumns();
+        if (!optional.length) {
+          els.columnFilterList.innerHTML = '<div class="detail-sub">没有可筛选的指标列</div>';
+          updateColumnFilterLabel();
+          return;
+        }
+        const frag = document.createDocumentFragment();
+        optional.forEach(base => {
+          const label = document.createElement("label");
+          label.className = "check-row";
+          const input = document.createElement("input");
+          input.type = "checkbox";
+          input.checked = state.selectedColumns.includes(base);
+          input.addEventListener("change", () => {
+            if (input.checked) {
+              if (!state.selectedColumns.includes(base)) state.selectedColumns.push(base);
+            } else {
+              state.selectedColumns = state.selectedColumns.filter(c => c !== base);
+            }
+            buildColumnSelect();
+            renderTable();
+            updateColumnFilterLabel();
+            savePreferences();
+          });
+          const span = document.createElement("span");
+          span.textContent = base;
+          span.title = withPeriodLabel(base);
+          label.append(input, span);
+          frag.appendChild(label);
+        });
+        els.columnFilterList.appendChild(frag);
+        updateColumnFilterLabel();
+      }
+
+      function updateColumnFilterLabel() {
+        const n = state.selectedColumns.filter(c => state.columnIndex.has(c)).length;
+        els.columnFilterLabel.textContent = n ? `指标列 ${n}` : "指标列";
+      }
+
+      function setSelectedColumns(cols) {
+        const optional = getOptionalBaseColumns();
+        state.selectedColumns = cols.filter(c => optional.includes(c));
+        remapSortKey();
+        buildColumnSelect();
+        buildColumnFilter();
+        renderTable();
+        savePreferences();
+      }
+
+      function setFilterPanelOpen(open) {
+        els.columnFilterPanel.classList.toggle("open", open);
+        els.columnFilterBtn.setAttribute("aria-expanded", open ? "true" : "false");
+      }
+
+      // ═══════════════════════════════════════════════
+      // 搜索与排序
+      // ═══════════════════════════════════════════════
+
+      function rowMatches(row, query, column) {
+        if (!query) return true;
+        if (state.favOnly && !state.favorites.has(row["指数代码"])) return false;
+        const haystack = column === "__all__"
+          ? state.columns.map(k => row[k]).join(" ")
+          : row[column] || "";
+        return String(haystack).toLowerCase().includes(query);
+      }
+
+      function applyFilter() {
+        const query = els.searchInput.value.trim().toLowerCase();
+        const column = els.columnSelect.value;
+        let filtered = state.rows;
+        // 先应用自选筛选
+        if (state.favOnly) {
+          filtered = filtered.filter(r => state.favorites.has(r["指数代码"]));
+        }
+        // 再应用搜索
+        if (query) {
+          filtered = filtered.filter(r => rowMatches(r, query, column));
+        }
+        state.filtered = filtered;
+        sortFiltered();
+        if (!state.filtered.some(r => r.__rowId === state.selectedIndex)) {
+          state.selectedIndex = state.filtered.length ? state.filtered[0].__rowId : -1;
+        }
+        renderTable();
+        renderDetail(getSelectedRow());
+        els.counter.textContent = `${state.filtered.length} / ${state.rows.length}`;
+      }
+
+      function sortFiltered() {
+        if (!state.sortKey) return;
+        const key = state.sortKey;
+        const dir = state.sortDir;
+        state.filtered.sort((a, b) => {
+          const an = parseNumber(a[key]);
+          const bn = parseNumber(b[key]);
+          if (an !== null && bn !== null) return (an - bn) * dir;
+          return cleanCell(a[key]).localeCompare(cleanCell(b[key]), "zh-CN") * dir;
+        });
+      }
+
+      function getSelectedRow() {
+        return state.rows.find(r => r.__rowId === state.selectedIndex) || null;
+      }
+
+      // ═══════════════════════════════════════════════
+      // 渲染表格
+      // ═══════════════════════════════════════════════
+
+      function isMobile() {
+        return window.matchMedia("(max-width: 760px)").matches;
+      }
+
+      function selectRow(row) {
+        state.selectedIndex = row.__rowId;
+        document.querySelectorAll("#dataTable tbody tr.selected, #cardList .idx-card.selected")
+          .forEach(el => el.classList.remove("selected"));
+        const scope = (isMobile() && state.mobileCards) ? els.cardList : els.dataTable;
+        const el = scope.querySelector(`[data-row-id="${row.__rowId}"]`);
+        if (el) el.classList.add("selected");
+        renderDetail(row);
+        if (isMobile()) openDetailSheet();
+      }
+
+      async function toggleFavorite(row) {
+        const code = row["指数代码"];
+        const isFav = state.favorites.has(code);
+        if (!code) return;
+        try {
+          if (isFav) {
+            await apiDelete(`/api/favorites/${encodeURIComponent(code)}`);
+            state.favorites.delete(code);
+          } else {
+            await apiPost("/api/favorites", {
+              index_code: code,
+              index_name: row["指数名称"] || "",
+              source_id: state.activeSourceId
+            });
+            state.favorites.add(code);
+          }
+          renderTable();
+          showToast(isFav ? "已取消自选" : "已加入自选");
+        } catch (err) {
+          showToast(`操作失败：${err.message}`);
+        }
+      }
+
+      function openDetailSheet() {
+        if (!isMobile() || !els.detailPane) return;
+        els.detailPane.classList.add("open");
+        els.sheetBackdrop.classList.add("show");
+        document.body.classList.add("sheet-open");
+      }
+
+      function closeDetailSheet() {
+        if (!els.detailPane) return;
+        els.detailPane.classList.remove("open");
+        els.sheetBackdrop.classList.remove("show");
+        document.body.classList.remove("sheet-open");
+      }
+
+      // ═══════════════════════════════════════════════
+      // 渲染列表（手机默认卡片，桌面/平板为表格）
+      // ═══════════════════════════════════════════════
+
+      function renderTable() {
+        const hasData = state.rows.length > 0;
+        const mobile = isMobile();
+        const useCards = hasData && mobile && state.mobileCards;
+
+        els.loading.style.display = "none";
+        els.emptyState.style.display = hasData ? "none" : "flex";
+        els.mobileListBar.style.display = hasData && mobile ? "flex" : "none";
+        const countText = `${state.filtered.length} / ${state.rows.length}`;
+        els.mobileCount.textContent = mobile && hasData && !useCards
+          ? `${countText} · 左右滑动`
+          : countText;
+        els.viewToggleBtn.textContent = state.mobileCards ? "表格视图" : "卡片视图";
+        els.viewToggleBtn.setAttribute("aria-pressed", state.mobileCards ? "true" : "false");
+        els.cardList.style.display = useCards ? "flex" : "none";
+        els.tableWrap.style.display = hasData && !useCards ? "" : "none";
+
+        if (!hasData) {
+          els.dataTable.innerHTML = "";
+          els.cardList.innerHTML = "";
+          return;
+        }
+        if (useCards) {
+          renderCards();
+          return;
+        }
+        renderDataTable();
+      }
+
+      function renderDataTable() {
+        const columns = getVisibleColumns();
+        if (!columns.length) { els.dataTable.innerHTML = ""; return; }
+
+        const thead = document.createElement("thead");
+        const headerRow = document.createElement("tr");
+
+        // 自选星标列
+        const starTh = document.createElement("th");
+        starTh.className = "col-star";
+        starTh.textContent = "⭐";
+        starTh.title = "自选";
+        headerRow.appendChild(starTh);
+
+        columns.forEach(col => {
+          const th = document.createElement("th");
+          th.textContent = displayColumnHeader(col);
+          th.title = `${col}：点击升降序排列`;
+          th.className = [
+            isTextColumn(col) ? "text" : "",
+            columnClass(col),
+            "sortable",
+            state.sortKey === col ? (state.sortDir > 0 ? "sorted-asc" : "sorted-desc") : ""
+          ].filter(Boolean).join(" ");
+          th.addEventListener("click", () => {
+            if (state.sortKey === col) { state.sortDir *= -1; }
+            else { state.sortKey = col; state.sortDir = 1; }
+            applyFilter();
+            savePreferences();
+          });
+          headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+
+        const tbody = document.createElement("tbody");
+        state.filtered.forEach(row => {
+          const tr = document.createElement("tr");
+          tr.dataset.rowId = String(row.__rowId);
+          if (row.__rowId === state.selectedIndex) tr.classList.add("selected");
+          tr.addEventListener("click", () => selectRow(row));
+
+          // 星标
+          const starTd = document.createElement("td");
+          starTd.className = "col-star";
+          const code = row["指数代码"];
+          const isFav = state.favorites.has(code);
+          const starBtn = document.createElement("button");
+          starBtn.className = "star-btn" + (isFav ? " active" : "");
+          starBtn.textContent = isFav ? "★" : "☆";
+          starBtn.title = isFav ? "取消自选" : "加入自选";
+          starBtn.addEventListener("click", async (e) => {
+            e.stopPropagation();
+            await toggleFavorite(row);
+          });
+          starTd.appendChild(starBtn);
+          tr.appendChild(starTd);
+
+          columns.forEach(col => {
+            const td = document.createElement("td");
+            td.className = [
+              isTextColumn(col) ? "text" : "",
+              columnClass(col),
+              valueTone(col, row[col])
+            ].filter(Boolean).join(" ");
+            td.textContent = formatValue(col, row[col]);
+            td.title = cleanCell(row[col]);
+            tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
+        });
+
+        els.dataTable.replaceChildren(thead, tbody);
+      }
+
+      // 卡片上重点展示的指标（只有用户选中了对应列才显示）
+      const CARD_METRIC_DEFS = [
+        { label: "PE", val: "PE-TTM(当前值)", pct: "PE-TTM(分位点%)" },
+        { label: "PB", val: "PB(当前值)", pct: "PB(分位点%)" },
+        { label: "PS", val: "PS-TTM(当前值)", pct: "PS-TTM(分位点%)" },
+        { label: "股息", val: "股息率(当前值)", pct: "股息率(分位点%)" }
+      ];
+
+      function cardMetricItems(row) {
+        const period = detailPeriod();
+        const items = [];
+        CARD_METRIC_DEFS.forEach(def => {
+          const vcol = resolveColumn(def.val, period);
+          const pcol = def.pct ? resolveColumn(def.pct, period) : null;
+          if (!vcol && !pcol) return;
+          const selected = !state.selectedColumns.length || state.selectedColumns.some(base =>
+            base === baseOf(vcol || "") || base === baseOf(pcol || "")
+          );
+          if (!selected) return;
+          const value = vcol ? formatValue(vcol, row[vcol]) : "";
+          const pct = pcol ? formatValue(pcol, row[pcol]) : "";
+          if (!value && !pct) return;   // 这一行没有该指标时不显示空占位
+          items.push({ label: def.label, value, pct });
+        });
+
+        if (!items.length) {
+          getVisibleColumns().filter(col => !isTextColumn(col)).some(col => {
+            const value = formatValue(col, row[col]);
+            if (!value) return false;
+            items.push({ label: displayColumnHeader(col), value, pct: "" });
+            return items.length >= 4;
+          });
+        }
+        return items.slice(0, 4);
+      }
+
+      function renderCards() {
+        const period = detailPeriod();
+        const changeCol = resolveColumn("涨跌幅", period) ||
+          (state.columns.includes("涨跌幅") ? "涨跌幅" : "");
+        const frag = document.createDocumentFragment();
+
+        state.filtered.forEach(row => {
+          const card = document.createElement("article");
+          card.className = "idx-card" + (row.__rowId === state.selectedIndex ? " selected" : "");
+          card.dataset.rowId = String(row.__rowId);
+          card.addEventListener("click", () => selectRow(row));
+
+          const head = document.createElement("div");
+          head.className = "card-head";
+
+          const code = cleanCell(row["指数代码"]);
+          const isFav = state.favorites.has(code);
+          const star = document.createElement("button");
+          star.type = "button";
+          star.className = "star-btn" + (isFav ? " active" : "");
+          star.textContent = isFav ? "★" : "☆";
+          star.title = isFav ? "取消自选" : "加入自选";
+          star.addEventListener("click", e => {
+            e.stopPropagation();
+            toggleFavorite(row);
+          });
+
+          const title = document.createElement("div");
+          title.className = "card-title";
+          const name = document.createElement("span");
+          name.className = "card-name";
+          name.textContent = cleanCell(row["指数名称"]) || "未命名指数";
+          const codeEl = document.createElement("span");
+          codeEl.className = "card-code";
+          codeEl.textContent = code;
+          title.append(name, codeEl);
+
+          const change = document.createElement("span");
+          change.className = ["card-change", changeCol ? valueTone(changeCol, row[changeCol]) : ""]
+            .filter(Boolean).join(" ");
+          change.textContent = changeCol ? (formatValue(changeCol, row[changeCol]) || "") : "";
+
+          head.append(star, title, change);
+
+          const metrics = document.createElement("div");
+          metrics.className = "card-metrics";
+          cardMetricItems(row).forEach(item => {
+            const box = document.createElement("div");
+            box.className = "card-metric";
+            const label = document.createElement("span");
+            label.className = "cm-label";
+            label.textContent = item.label;
+            const value = document.createElement("span");
+            value.className = "cm-value";
+            value.textContent = item.value || "-";
+            if (item.pct) {
+              const pct = document.createElement("span");
+              pct.className = "cm-pct";
+              pct.textContent = ` @${item.pct}`;
+              value.appendChild(pct);
+            }
+            box.append(label, value);
+            metrics.appendChild(box);
+          });
+
+          card.append(head);
+          if (metrics.childElementCount) {
+            card.append(metrics);
+          } else {
+            const empty = document.createElement("div");
+            empty.className = "card-empty";
+            empty.textContent = "暂无指标数据";
+            card.append(empty);
+          }
+          frag.appendChild(card);
+        });
+
+        els.cardList.replaceChildren(frag);
+      }
+
+      // ═══════════════════════════════════════════════
+      // 渲染详情
+      // ═══════════════════════════════════════════════
+
+      function renderDetail(row) {
+        if (!row) {
+          els.detailTitle.textContent = "未选择指数";
+          els.detailCode.textContent = "";
+          els.detailSub.textContent = state.rows.length ? "没有匹配结果" : "点击表格中的任意一行查看完整数据";
+          els.metricGrid.innerHTML = "";
+          els.fieldList.innerHTML = "";
+          return;
+        }
+
+        const name = cleanCell(row["指数名称"]) || "未命名指数";
+        const code = cleanCell(row["指数代码"]);
+        const dataDate = cleanCell(row["发布时间"]);
+        const period = detailPeriod();
+        els.detailTitle.textContent = name;
+        els.detailCode.textContent = code;
+        els.detailSub.textContent = [
+          dataDate ? `发布时间：${dataDate}` : "",
+          period ? `分位点周期：${period}` : ""
+        ].filter(Boolean).join(" · ");
+
+        // 从所有字段中智能选取指标卡（按当前分位点周期取对应的分位点列）
+        const candidateDefs = [
+          { label: "PE-TTM", valBase: "PE-TTM(当前值)", pctBase: "PE-TTM(分位点%)" },
+          { label: "PB", valBase: "PB(当前值)", pctBase: "PB(分位点%)" },
+          { label: "PS-TTM", valBase: "PS-TTM(当前值)", pctBase: "PS-TTM(分位点%)" },
+          { label: "股息率", valBase: "股息率(当前值)", pctBase: "股息率(分位点%)" },
+          { label: "今年以来", valBase: "今年以来涨跌幅", pctBase: "" },
+          { label: "涨跌幅", valBase: "涨跌幅", pctBase: "" },
+        ];
+
+        const candidates = [];
+        candidateDefs.forEach(def => {
+          const valKey = resolveColumn(def.valBase, period);
+          if (!valKey) return;
+          const pctKey = def.pctBase ? resolveColumn(def.pctBase, period) : null;
+          candidates.push({
+            label: def.label,
+            valKey,
+            pctKey: pctKey && pctKey !== valKey ? pctKey : ""
+          });
+        });
+
+        if (!candidates.length) {
+          // 选前6个非文本字段
+          state.columns.filter(c => !isTextColumn(c)).slice(0, 6).forEach(c => {
+            candidates.push({ label: baseOf(c), valKey: c, pctKey: "" });
+          });
+        }
+
+        els.metricGrid.replaceChildren(...candidates.map(c => {
+          const box = document.createElement("div");
+          box.className = "metric";
+          const le = document.createElement("div");
+          le.className = "metric-label";
+          le.textContent = c.label;
+          const ve = document.createElement("div");
+          ve.className = ["metric-value", valueTone(c.valKey, row[c.valKey])].filter(Boolean).join(" ");
+          let text = formatValue(c.valKey, row[c.valKey]) || "-";
+          if (c.pctKey && row[c.pctKey]) text += ` @ ${formatValue(c.pctKey, row[c.pctKey])}`;
+          ve.textContent = text;
+          box.append(le, ve);
+          return box;
+        }));
+
+        const frag = document.createDocumentFragment();
+        getVisibleColumns().forEach(col => {
+          const re = document.createElement("div");
+          re.className = "field-row";
+          const ke = document.createElement("div");
+          ke.className = "field-key";
+          ke.textContent = state.period === ALL_PERIODS ? col : baseOf(col);
+          ke.title = col;
+          const ve = document.createElement("div");
+          ve.className = ["field-value", valueTone(col, row[col])].filter(Boolean).join(" ");
+          ve.textContent = formatValue(col, row[col]) || "-";
+          re.append(ke, ve);
+          frag.appendChild(re);
+        });
+        els.fieldList.replaceChildren(frag);
+      }
+
+      // ═══════════════════════════════════════════════
+      // 导出
+      // ═══════════════════════════════════════════════
+
+      function exportCSV() {
+        if (!state.filtered.length) { showToast("没有可导出的数据"); return; }
+        const cols = getVisibleColumns();
+        const lines = [];
+        lines.push(cols.map(csvEscape).join(","));
+        state.filtered.forEach(r => {
+          lines.push(cols.map(c => csvEscape(cleanCell(r[c]))).join(","));
+        });
+        const blob = new Blob(["\uFEFF" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `指数数据_${state.currentBatch ? state.currentBatch.batch_date : "export"}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast(`已导出 ${state.filtered.length} 行`);
+      }
+
+      function csvEscape(value) {
+        const text = String(value ?? "");
+        if (/[",\r\n]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
+        return text;
+      }
+
+      // ═══════════════════════════════════════════════
+      // 手动更新
+      // ═══════════════════════════════════════════════
+
+      async function doUpdate() {
+        els.updateBtn.disabled = true;
+        els.updateBtn.textContent = "更新中...";
+        showToast("正在从数据源获取数据...");
+        try {
+          const result = await apiPost("/api/fetch", { source_id: state.activeSourceId });
+          showToast(`更新成功：${result.record_count} 条记录`);
+          await loadBatches();
+          await loadIndexData(result.batch_id);
+        } catch (err) {
+          showToast(`更新失败：${err.message}`);
+        } finally {
+          els.updateBtn.disabled = false;
+          els.updateBtn.innerHTML = '<svg class="icon" viewBox="0 0 24 24"><path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path><path d="M3 22v-6h6"></path><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path></svg>更新数据';
+        }
+      }
+
+      // ═══════════════════════════════════════════════
+      // 数据源面板已移除 — 使用 Playwright + CSV 导出
+      function renderSourcePanel(){}
+      function setSourcePanelOpen(_){}
+
+      // ═══════════════════════════════════════════════
+      // 手机访问面板
+      // ═══════════════════════════════════════════════
+
+      function renderQrCode(url) {
+        const canvas = els.shareQr;
+        if (!canvas) return;
+        const ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (!url || typeof qrcode !== "function") {
+          canvas.style.display = "none";
+          return;
+        }
+        try {
+          const qr = qrcode(0, "M");
+          qr.addData(url);
+          qr.make();
+          const count = qr.getModuleCount();
+          const margin = 4;                     // 留出扫码需要的白边
+          const total = count + margin * 2;
+          const cell = canvas.width / total;
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.fillStyle = "#111827";
+          for (let row = 0; row < count; row++) {
+            for (let col = 0; col < count; col++) {
+              if (!qr.isDark(row, col)) continue;
+              ctx.fillRect(
+                Math.floor((col + margin) * cell),
+                Math.floor((row + margin) * cell),
+                Math.ceil(cell),
+                Math.ceil(cell)
+              );
+            }
+          }
+          canvas.style.display = "";
+        } catch (err) {
+          canvas.style.display = "none";
+        }
+      }
+
+      async function openSharePanel() {
+        els.sharePanel.classList.add("open");
+        els.shareBackdrop.classList.add("show");
+        els.shareUrl.dataset.url = "";
+        els.shareUrl.textContent = "获取中…";
+        els.shareQr.style.display = "none";
+        try {
+          const net = await apiGet("/api/network");
+          if (net.url) {
+            els.shareUrl.textContent = net.url;
+            els.shareUrl.dataset.url = net.url;
+            renderQrCode(net.url);
+          } else {
+            els.shareUrl.textContent = "未检测到局域网地址";
+          }
+        } catch (err) {
+          els.shareUrl.textContent = "获取地址失败，请确认服务已启动";
+        }
+      }
+
+      function closeSharePanel() {
+        els.sharePanel.classList.remove("open");
+        els.shareBackdrop.classList.remove("show");
+      }
+
+      async function copyShareUrl() {
+        const url = els.shareUrl.dataset.url;
+        if (!url) { showToast("还没有获取到地址"); return; }
+        try {
+          await navigator.clipboard.writeText(url);
+          showToast("链接已复制，发到手机即可打开");
+        } catch (_) {
+          const range = document.createRange();
+          range.selectNodeContents(els.shareUrl);
+          const sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(range);
+          showToast("已选中链接，请按 Ctrl+C 复制");
+        }
+      }
+
+      // ═══════════════════════════════════════════════
+      // 事件绑定
+      // ═══════════════════════════════════════════════
+
+      els.searchInput.addEventListener("input", applyFilter);
+      els.columnSelect.addEventListener("change", () => { applyFilter(); savePreferences(); });
+
+      els.batchSelect.addEventListener("change", async () => {
+        const val = els.batchSelect.value;
+        if (val === "latest") {
+          await loadIndexData(null);
+        } else {
+          await loadIndexData(parseInt(val));
+        }
+      });
+
+      els.periodSelect.addEventListener("change", () => {
+        state.period = els.periodSelect.value;
+        remapSortKey();
+        buildColumnSelect();
+        buildColumnFilter();
+        applyFilter();
+        savePreferences();
+        if (state.period === ALL_PERIODS) {
+          showToast("已显示全部分位点周期");
+        } else if (state.period) {
+          showToast(`分位点周期切换为 ${state.period}`);
+        }
+      });
+
+      els.favOnlyBtn.addEventListener("click", () => {
+        state.favOnly = !state.favOnly;
+        els.favOnlyBtn.classList.toggle("active", state.favOnly);
+        applyFilter();
+        savePreferences();
+      });
+
+      els.exportBtn.addEventListener("click", exportCSV);
+      els.updateBtn.addEventListener("click", doUpdate);
+      els.stopBtn.addEventListener("click", async () => {
+        if (!confirm('确定要停止服务吗？停止后需要重新启动。')) return;
+        try {
+          await fetch('/api/shutdown', { method: 'POST' });
+        } catch (_) { /* server already shutting down */ }
+        showToast('服务已停止，可以关闭此页面。');
+      });
+
+      // 手机：卡片 / 表格视图切换
+      els.viewToggleBtn.addEventListener("click", () => {
+        state.mobileCards = !state.mobileCards;
+        renderTable();
+      });
+
+      // 手机：详情底部弹层
+      els.detailCloseBtn.addEventListener("click", closeDetailSheet);
+      els.sheetBackdrop.addEventListener("click", closeDetailSheet);
+
+      // 手机访问面板
+      els.mobileShareBtn.addEventListener("click", openSharePanel);
+      els.shareCloseBtn.addEventListener("click", closeSharePanel);
+      els.shareDoneBtn.addEventListener("click", closeSharePanel);
+      els.shareBackdrop.addEventListener("click", closeSharePanel);
+      els.copyUrlBtn.addEventListener("click", copyShareUrl);
+
+      document.addEventListener("keydown", e => {
+        if (e.key !== "Escape") return;
+        if (els.sharePanel.classList.contains("open")) { closeSharePanel(); return; }
+        closeDetailSheet();
+      });
+
+      // 窗口尺寸变化时切换列表形态
+      const mobileMedia = window.matchMedia("(max-width: 760px)");
+      const onViewportChange = () => {
+        state.mobileCards = mobileMedia.matches;
+        if (!mobileMedia.matches) closeDetailSheet();
+        renderTable();
+      };
+      if (mobileMedia.addEventListener) mobileMedia.addEventListener("change", onViewportChange);
+      else if (mobileMedia.addListener) mobileMedia.addListener(onViewportChange);
+
+      document.addEventListener("click", () => { setFilterPanelOpen(false); });
+
+      els.columnFilterBtn.addEventListener("click", e => {
+        e.stopPropagation();
+        setFilterPanelOpen(!els.columnFilterPanel.classList.contains("open"));
+      });
+      els.columnFilterPanel.addEventListener("click", e => e.stopPropagation());
+      els.selectDefaultColumnsBtn.addEventListener("click", () => setSelectedColumns(getDefaultSelectedColumns()));
+      els.selectAllColumnsBtn.addEventListener("click", () => setSelectedColumns(getOptionalBaseColumns()));
+      els.selectPercentColumnsBtn.addEventListener("click", () => setSelectedColumns(getPercentBaseColumns()));
+      els.clearColumnsBtn.addEventListener("click", () => setSelectedColumns([]));
+
+      // ═══════════════════════════════════════════════
+      // 启动
+      // ═══════════════════════════════════════════════
+
+      async function init() {
+        // ── 协议检测：如果从 file:// 打开，直接提示 ──────────
+        if (window.location.protocol === 'file:') {
+          els.loading.style.display = "none";
+          els.emptyState.style.display = "flex";
+          els.statusBar.textContent = "✗ 错误打开方式";
+          showToast(
+            '⚠️ 请通过 Flask 后端访问此页面（http://127.0.0.1:5000/），' +
+            '不要直接双击 HTML 文件打开。\n' +
+            '当前为 file:// 协议，浏览器无法连接后端 API。'
+          );
+          document.querySelector('.empty-title').textContent = '❌ 页面打开方式错误';
+          document.querySelector('.empty-copy').innerHTML =
+            '请先启动后端：<code>python server.py</code>，<br>' +
+            '然后在浏览器访问 <strong>http://127.0.0.1:5000/</strong>。';
+          return;
+        }
+
+        try {
+          await loadSources();
+          if (state.sources.length === 0) {
+            els.loading.style.display = "none";
+            els.emptyState.style.display = "flex";
+            els.statusBar.textContent = "无数据源";
+            return;
+          }
+          await loadPreferences();
+          await loadPeriods();
+          await loadFavorites();
+          await loadBatches();
+          await loadIndexData(null);
+        } catch (err) {
+          console.error("初始化失败:", err);
+          els.loading.style.display = "none";
+          els.emptyState.style.display = "flex";
+          els.statusBar.textContent = "连接后端失败";
+          showToast("无法连接后端服务，请确认 server.py 已启动");
+        }
+      }
+
+      init();
+    })();
+  </script>
+</body>
+</html>
