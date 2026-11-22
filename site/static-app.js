@@ -389,6 +389,15 @@
       shareBtn.textContent = "🔗 分享";
       shareBtn.title = "分享此在线看板";
     }
+    const shareTitle = document.getElementById("shareTitle");
+    if (shareTitle) shareTitle.textContent = "分享此看板";
+    const sharePanel = document.getElementById("sharePanel");
+    if (sharePanel) {
+      const intro = sharePanel.querySelector("p");
+      if (intro) intro.textContent = "把下面的网址发给任何手机或电脑，打开后输入访问密码即可。";
+      const hint = sharePanel.querySelector(".share-hint");
+      if (hint) hint.textContent = "不需要电脑开机，也不需要连接同一个网络。";
+    }
     const emptyCopy = document.querySelector(".empty-copy");
     if (emptyCopy) emptyCopy.textContent = "当前数据快照为空。";
     const meta = document.querySelector(".brand .meta");
